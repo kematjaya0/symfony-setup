@@ -160,7 +160,7 @@ docker compose exec php composer require kematjaya/access-control-bundle --no-in
 echo -e "🔧 ${GREEN}Menjalankan installer RBAC (bin/access-control-setup.sh)...${NC}"
 docker compose exec php bash bin/access-control-setup.sh
 echo -e "\n📝 ${GREEN} Syncing the permissions manifest into the database"
-php bin/console kematjaya:access-control:sync
+docker compose exec php php bin/console kematjaya:access-control:sync
 
 # access-control-setup.sh sudah menulis config/permissions/default.yaml
 # lengkap (Dashboard bawaan recipe bundle + Access Control ditambahkan
