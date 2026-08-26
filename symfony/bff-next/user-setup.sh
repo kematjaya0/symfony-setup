@@ -26,7 +26,7 @@ Dev-only bootstrap from host (tipe project: Full-stack Symfony API + Next.js):
   (writes User entity/repository/manager, JWT config+keypair, .env vars)
 - installs kematjaya/access-control-bundle, runs bin/access-control-setup.sh
   (writes RBAC config + starter permission manifest)
-- writes UserFixtures (admin@example.com / user@example.com) + loads them
+- writes UserFixtures (root@example.com / user@example.com) + loads them
 - prints the ONE manual step neither bundle automates (security.yaml merge)
 - prints the next command: bash bin/frontend-setup.sh
 HELP

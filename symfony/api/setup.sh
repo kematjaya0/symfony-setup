@@ -186,7 +186,7 @@ class UserFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         $user = (new User())
-            ->setEmail('admin@example.com')
+            ->setEmail('root@example.com')
             ->setRoles(['ROLE_ADMIN']);
 
         $user->setPassword($this->passwordHasher->hashPassword($user, 'admin123'));
@@ -236,7 +236,7 @@ class UserFixturesTest extends TestCase
         (new UserFixtures($passwordHasher))->load($manager);
 
         self::assertInstanceOf(User::class, $persistedUser);
-        self::assertSame('admin@example.com', $persistedUser->getEmail());
+        self::assertSame('root@example.com', $persistedUser->getEmail());
         self::assertSame('hashed-admin-password', $persistedUser->getPassword());
         self::assertContains('ROLE_ADMIN', $persistedUser->getRoles());
         self::assertContains('ROLE_USER', $persistedUser->getRoles());

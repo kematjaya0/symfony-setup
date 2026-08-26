@@ -242,7 +242,7 @@ FRONTEND_SERVICE_BLOCK='  frontend:
     environment:
       PLAYWRIGHT_BASE_URL: http://localhost:3000
       PLAYWRIGHT_SKIP_WEB_SERVER: "1"
-      PLAYWRIGHT_ADMIN_EMAIL: admin@example.com
+      PLAYWRIGHT_ADMIN_EMAIL: root@example.com
       PLAYWRIGHT_ADMIN_PASSWORD: admin123
     volumes:
       - ./frontend:/app
@@ -326,5 +326,5 @@ if [[ -f security-snippet.yaml ]]; then
     echo ""
 fi
 echo -e "Coba register user baru lewat ${GREEN}http://localhost:3000/register${NC}"
-echo -e "atau login pakai fixture: ${GREEN}admin@example.com / admin123${NC} atau ${GREEN}user@example.com / admin123${NC}"
+echo -e "atau login pakai fixture: ${GREEN}root@example.com / admin123${NC} atau ${GREEN}user@example.com / admin123${NC}"
 echo -e "${YELLOW}============================================================${NC}"

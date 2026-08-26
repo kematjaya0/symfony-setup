@@ -142,13 +142,13 @@ docker compose up -d --force-recreate php
 
 echo ""
 echo -e "${YELLOW}============================================================${NC}"
-echo -e "${YELLOW}✅ JWT auth siap. Contoh pemakaian (fixture: admin@example.com / admin123):${NC}"
+echo -e "${YELLOW}✅ JWT auth siap. Contoh pemakaian (fixture: root@example.com / admin123):${NC}"
 echo -e "${YELLOW}============================================================${NC}"
 echo ""
 echo -e "${GREEN}1. Login, ambil token:${NC}"
 echo '   curl -s -X POST http://localhost:8082/api/login_check \'
 echo '     -H "Content-Type: application/json" \'
-echo '     -d '"'"'{"email":"admin@example.com","password":"admin123"}'"'"
+echo '     -d '"'"'{"email":"root@example.com","password":"admin123"}'"'"
 echo ""
 echo -e "${GREEN}2. Akses endpoint terproteksi pakai token dari langkah 1:${NC}"
 echo '   curl -s http://localhost:8082/api/me -H "Authorization: Bearer <token>"'
