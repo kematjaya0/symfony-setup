@@ -33,40 +33,25 @@ HELP
     exit 0
 fi
 
-echo "== Dev setup from host =="
+echo -e "📦 ${YELLOW} == Dev setup from host == ${NC}"
 docker compose up -d
 
-# docker compose exec berjalan sebagai root di dalam container, sementara
-# /app dimiliki UID host (dari composer:2 builder container yang -u
-# $(id -u):$(id -g)) — tanpa ini, tiap `composer require` mencetak warning
-# "detected dubious ownership" (noise, tidak fatal, tapi mengotori output).
 docker compose exec -T php git config --global --add safe.directory /app
 
-# `composer require` di dalam container jalan sebagai root, dan Flex recipe
-# paket yang di-require sering ikut menulis file baru di config/ (mis.
-# nelmio/cors-bundle menulis config/packages/nelmio_cors.yaml sendiri) —
-# file itu jadi root-owned. Dipanggil ULANG setelah TIAP composer require
-# yang diikuti host-side heredoc write (bukan cuma sekali di awal), karena
-# tiap require bisa menciptakan file root-owned baru.
 fix_ownership() {
     docker compose exec -T php sh -c "chown -R $(id -u):$(id -g) /app/src /app/tests /app/config" 2>/dev/null || true
     mkdir -p backend/config/packages backend/config/routes
     chmod -R u+rwX backend/src backend/tests backend/config 2>/dev/null || true
 }
 
-echo -e "📦 ${GREEN}Menginstal API Platform (kontrak JSON:API untuk frontend Next.js)...${NC}"
-# symfony/twig-bundle WAJIB ikut di sini (bukan cuma api-platform/symfony +
-# api-platform/doctrine-orm) — Swagger UI (/api/docs, halaman HTML-nya,
-# BUKAN endpoint JSON-LD) di-render lewat Twig oleh ApiPlatform\Symfony\
-# Bundle\SwaggerUi\SwaggerUiProcessor. Tanpa ini /api/docs 500 dengan pesan
-# "The documentation cannot be displayed since the Twig bundle is not
-# installed." — diverifikasi manual lewat generate nyata.
-docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm symfony/twig-bundle symfony/expression-language nelmio/cors-bundle kematjaya/auth-bundle kematjaya/access-control-bundle --no-interaction
+echo -e "📦 ${YELLOW} == Menginstal API Platform (kontrak JSON:API untuk frontend Next.js)...${NC}"
 
-echo "== Ensure project files are writable from host =="
+docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm symfony/twig-bundle symfony/expression-language nelmio/cors-bundle --no-interaction
+
+echo -e "📦 ${YELLOW} == Ensure project files are writable from host == ${NC}"
 fix_ownership
 
-echo -e "📝 ${GREEN}Menulis config/packages/api_platform.yaml...${NC}"
+echo -e "📝 ${YELLOW} == Menulis config/packages/api_platform.yaml...${NC}"
 cat > backend/config/packages/api_platform.yaml <<YAML
 api_platform:
     title: $PROJECT_NAME API
@@ -84,7 +69,7 @@ api_platform:
             vary: ['Content-Type', 'Authorization', 'Origin']
 YAML
 
-echo -e "📝 ${GREEN}Mendaftarkan route API Platform...${NC}"
+echo -e "📝 ${YELLOW}== Mendaftarkan route API Platform...${NC}"
 cat > backend/config/routes/api_platform.yaml <<'YAML'
 api_platform:
     resource: .
@@ -92,7 +77,7 @@ api_platform:
     prefix: /api
 YAML
 
-echo -e "📝 ${GREEN} Setup nelmio/cors-bundle (frontend Next.js beda origin)...${NC}"
+echo -e "📝 ${YELLOW} == Setup nelmio/cors-bundle (frontend Next.js beda origin)...${NC}"
 # nelmio/cors-bundle punya Flex recipe sendiri yang ikut menulis
 # config/packages/nelmio_cors.yaml (root-owned) — chown ulang sebelum host
 # menimpanya, lihat catatan fix_ownership() di atas.
@@ -110,29 +95,11 @@ nelmio_cors:
         '^/api/': null
 YAML
 
-echo -e "\n${BLUE}==================================================${NC}"
-echo -e "📦 ${GREEN} Setup kematjaya/auth-bundle...${NC}"
-echo -e "${BLUE}==================================================${NC}"
-# --no-scripts WAJIB di sini: composer.json app punya post-update-cmd yang
-# otomatis jalankan cache:clear begitu package ke-require. Tapi bundle ini
-# butuh App\Security\UserManager (ditulis oleh setup.sh di bawah) untuk bisa
-# compile container — kalau cache:clear jalan SEBELUM setup.sh, container
-# gagal compile ("Cannot autowire ... UserManagerInterface but no such
-# service exists") dan composer require ikut exit non-zero. Urutan yang
-# benar: require dulu tanpa scripts, baru setup.sh menulis file yang hilang,
-# baru compile container (setup.sh sendiri diakhiri dengan
-# doctrine:schema:update --force yang otomatis mengompilasi container).
-# Gap di auth-bundle/setup.sh: bundle ini bergantung ke 2 dependency Composer
-# (lexik + gesdinet) yang masing-masing punya recipe Flex sendiri untuk
-# registrasi bundle. lexik pakai recipe RESMI (selalu diterapkan otomatis),
-# tapi gesdinet cuma punya recipe CONTRIB — dengan --no-interaction (wajib
-# untuk installer non-interaktif) dan tanpa "allow-contrib": true, Flex
-# DIAM-DIAM skip recipe itu ("IGNORING gesdinet/jwt-refresh-token-bundle").
-# Harus didaftarkan manual SEBELUM vendor/kematjaya/auth-bundle/setup.sh
-# jalan — soalnya setup.sh itu sendiri diakhiri dengan doctrine:schema:update
-# yang butuh container compile, dan container gagal compile kalau bundle
-# yang config fragmentnya (ditulis setup.sh) belum terdaftar.
-echo -e "🔧 ${GREEN}Mendaftarkan GesdinetJWTRefreshTokenBundle (Flex contrib recipe di-skip saat non-interaktif)...${NC}"
+echo -e "📦 ${YELLOW} == Setup kematjaya/auth-bundle...${NC}"
+
+docker compose exec php composer require kematjaya/auth-bundle kematjaya/access-control-bundle --no-interaction --no-scripts
+
+echo -e "🔧 ${YELLOW} == Mendaftarkan GesdinetJWTRefreshTokenBundle (Flex contrib recipe di-skip saat non-interaktif)...${NC}"
 if grep -q 'GesdinetJWTRefreshTokenBundle::class' backend/config/bundles.php; then
     echo -e "${YELLOW}--${NC} skipped config/bundles.php (entry sudah ada)"
 else
@@ -146,24 +113,18 @@ else
     '
 fi
 
-echo -e "🔧 ${GREEN}Menjalankan installer bawaan bundle (User entity, JWT, .env)...${NC}"
+echo -e "🔧 ${YELLOW}== Menjalankan installer bawaan bundle (User entity, JWT, .env)...${NC}"
 docker compose exec php bash vendor/kematjaya/auth-bundle/setup.sh
 
-echo -e "\n${BLUE}==================================================${NC}"
-echo -e "📦 ${GREEN} SETUP kematjaya/access-control-bundle...${NC}"
-echo -e "${BLUE}==================================================${NC}"
+echo -e "📦 ${YELLOW} Setup kematjaya/access-control-bundle...${NC}"
+docker compose exec php composer require  --no-interaction --no-scripts
 
-# access-control-setup.sh sudah menulis config/permissions/default.yaml
-# lengkap (Dashboard bawaan recipe bundle + Access Control ditambahkan
-# access-control-setup.sh) dan sudah men-sync sendiri di akhir — tidak ada
-# yang perlu ditambahkan lagi di sini.
+echo -e "🔧 ${YELLOW}== Menjalankan installer RBAC (bin/access-control-setup.sh)...${NC}"
+docker compose exec php bash bin/access-control-setup.sh
 
-echo -e "\n📝 ${GREEN}Membuat fixture user (root@example.com / user@example.com)...${NC}"
+echo -e "\n📝 ${YELLOW}== Membuat fixture user (root@example.com / user@example.com)...${NC}"
 docker compose exec php composer require doctrine/doctrine-fixtures-bundle kematjaya/crud-maker-api-bundle --dev --no-interaction
-# Recipe doctrine/doctrine-fixtures-bundle sudah membuat stub kosong
-# src/DataFixtures/AppFixtures.php (root, lewat docker compose exec) — chown
-# ulang supaya host bisa menimpanya, lalu isi stub itu (bukan bikin file
-# fixture baru) supaya cuma ada 1 fixture class.
+
 fix_ownership
 mkdir -p backend/src/DataFixtures
 cat > backend/src/DataFixtures/AppFixtures.php <<'PHP'
@@ -200,24 +161,16 @@ class AppFixtures extends Fixture
 PHP
 
 
-# WAJIB clear cache dulu: recipe doctrine/doctrine-fixtures-bundle di atas
-# sudah menjalankan cache:clear-nya sendiri TERHADAP stub kosong (constructor
-# tanpa argumen) SEBELUM baris di atas menimpa file itu dengan constructor
-# yang butuh UserPasswordHasherInterface. Tanpa clear ulang, container cache
-# masih berisi definisi service lama -> ArgumentCountError saat fixtures:load.
 docker compose exec php php bin/console cache:clear
 
-echo -e "🔧 ${GREEN} Menjalankan fixture load...${NC}"
+echo -e "🔧 ${YELLOW} Menjalankan fixture load...${NC}"
 docker compose exec php php bin/console doctrine:fixtures:load --no-interaction
-echo -e "\n📝 ${GREEN} Syncing the permissions into the database"
+echo -e "\n📝 ${YELLOW} Syncing the permissions into the database"
 docker compose exec php php bin/console kematjaya:access-control:sync
 
 echo ""
-echo -e "${BLUE}🔐 Mencoba merge otomatis backend/config/packages/security.yaml...${NC}"
-# Auto-merge HANYA untuk bentuk default persis yang ditulis recipe resmi
-# symfony/security-bundle (diverifikasi manual sekali lewat generate nyata).
-# Kalau bentuknya sudah beda (file di-custom manual), skip ke instruksi
-# manual di bawah — jangan pernah menebak/menimpa buta.
+echo -e "${YELLOW}🔐 Mencoba merge otomatis backend/config/packages/security.yaml...${NC}"
+
 if python3 - <<'PY'
 from pathlib import Path
 import sys
@@ -363,10 +316,10 @@ when@test:
                 time_cost: 3
                 memory_cost: 10
 YAML
-    echo -e "📄 ${GREEN}backend/security-snippet.yaml${NC} ditulis — buka berdampingan"
+    echo -e "📄 ${GREEN} backend/security-snippet.yaml${NC} ditulis — buka berdampingan"
     echo -e "   dengan ${GREEN}backend/config/packages/security.yaml${NC}, merge, lalu hapus file ini."
     echo ""
-    echo -e "${GREEN}Setelah merge, restart php supaya security.yaml baru kepakai:${NC}"
+    echo -e "${GREEN} Setelah merge, restart php supaya security.yaml baru kepakai:${NC}"
     echo -e "   docker compose up -d --force-recreate php"
     echo ""
 fi
