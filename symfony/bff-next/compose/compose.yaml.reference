@@ -1,0 +1,165 @@
+name: boilerplate
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [internal]
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?serverVersion=17&charset=utf8
+      JWT_SECRET_KEY: /run/jwt/private.pem
+      JWT_PUBLIC_KEY: /run/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:?Set CORS_ALLOW_ORIGIN in .env}
+      SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES:-}
+      DEFAULT_URI: ${BACKEND_DEFAULT_URI:-http://backend:8080}
+      PERMISSIONS_PROFILE: ${PERMISSIONS_PROFILE:-default}
+    volumes:
+      - ./backend/config/jwt:/run/jwt:ro
+      - permissions_export:/app/var/permissions-export
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/api/docs') === false ? 1 : 0);"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://backend:8080
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env}
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  migrate:
+    profiles: [migrate]
+    build:
+      context: ./backend
+      target: production
+    restart: "no"
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?serverVersion=17&charset=utf8
+      JWT_SECRET_KEY: /run/jwt/private.pem
+      JWT_PUBLIC_KEY: /run/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      PERMISSIONS_PROFILE: ${PERMISSIONS_PROFILE:-default}
+    volumes:
+      - ./backend/config/jwt:/run/jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["php", "bin/console", "doctrine:migrations:migrate", "--no-interaction", "--allow-no-migration"]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  schema-update:
+    profiles: [migrate]
+    build:
+      context: ./backend
+      target: production
+    restart: "no"
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?serverVersion=17&charset=utf8
+      JWT_SECRET_KEY: /run/jwt/private.pem
+      JWT_PUBLIC_KEY: /run/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      PERMISSIONS_PROFILE: ${PERMISSIONS_PROFILE:-default}
+    volumes:
+      - ./backend/config/jwt:/run/jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["php", "bin/console", "doctrine:schema:update", "--force"]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  console:
+    profiles: [migrate]
+    build:
+      context: ./backend
+      target: production
+    restart: "no"
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?serverVersion=17&charset=utf8
+      JWT_SECRET_KEY: /run/jwt/private.pem
+      JWT_PUBLIC_KEY: /run/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      PERMISSIONS_PROFILE: ${PERMISSIONS_PROFILE:-default}
+    volumes:
+      - ./backend/config/jwt:/run/jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  composer:
+    profiles: [migrate]
+    image: composer:2
+    restart: "no"
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      COMPOSER_HOME: /tmp/composer
+    networks: [internal]
+
+volumes:
+  postgres_data:
+  permissions_export:
+
+networks:
+  internal:
+    driver: bridge

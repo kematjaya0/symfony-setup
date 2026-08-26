@@ -1,0 +1,3 @@
+kematjaya_access_control:
+    superuser_role: ROLE_ADMIN
+    manifest_profile: '%env(PERMISSIONS_PROFILE)%'

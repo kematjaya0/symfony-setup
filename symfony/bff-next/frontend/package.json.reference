@@ -1,0 +1,54 @@
+{
+    "name": "boilerplate-frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "test:e2e": "playwright test",
+        "format": "prettier --check .",
+        "api:types": "node scripts/generate-api-types.mjs",
+        "api:types:check": "node scripts/generate-api-types.mjs --check"
+    },
+    "dependencies": {
+        "@hookform/resolvers": "^5.2.2",
+        "@kematjaya/access-control-ui": "^0.1.0",
+        "@kematjaya/auth-ui": "^0.1.2",
+        "@kematjaya/bootstrap-ui-kit": "^0.3.0",
+        "bootstrap": "^5.3.3",
+        "bootstrap-icons": "^1.11.3",
+        "next": "16.2.12",
+        "react": "^19.2.3",
+        "react-dom": "^19.2.3",
+        "react-hook-form": "^7.68.0",
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.57.0",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.1",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/node": "^24.10.4",
+        "@types/react": "^19.2.7",
+        "@types/react-dom": "^19.2.3",
+        "@vitejs/plugin-react": "^5.1.2",
+        "eslint": "^9.39.2",
+        "eslint-config-next": "16.2.12",
+        "eslint-config-prettier": "^10.1.8",
+        "jsdom": "^27.3.0",
+        "openapi-typescript": "^7.13.0",
+        "prettier": "^3.7.4",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.15"
+    },
+    "engines": {
+        "node": ">=20.9"
+    },
+    "overrides": {
+        "postcss": "8.5.25"
+    }
+}

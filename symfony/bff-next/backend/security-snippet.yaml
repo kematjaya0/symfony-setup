@@ -1,0 +1,67 @@
+# NOT auto-merged — deliberately manual (kematjaya/auth-bundle's own author
+# judged this too risky to automate: a fresh `composer require
+# symfony/security-bundle` skeleton already writes its own security.yaml with
+# `providers: users_in_memory` and an in-memory `main` firewall, so a blind
+# overwrite/append could silently break or duplicate blocks).
+#
+# Open config/packages/security.yaml side by side with this file and merge:
+#   - role_hierarchy                     (new block)
+#   - password_hashers                   (replace whatever the skeleton wrote)
+#   - providers.app_user_provider        (replace users_in_memory)
+#   - firewalls.dev + firewalls.main     (replace whatever the skeleton wrote)
+#   - access_control                     (replace the skeleton's default rule)
+#
+# This is the exact combination auth-bundle's own
+# config/packages/kematjaya_auth_security.yaml.dist asks for, plus 2 rules
+# access-control-bundle and API Platform's Swagger UI need on top of it
+# (marked below).
+
+security:
+    role_hierarchy:
+        ROLE_ADMIN: ROLE_USER
+
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            stateless: true
+            provider: app_user_provider
+            entry_point: jwt
+            json_login:
+                check_path: kematjaya_auth_login
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+            refresh_jwt:
+                check_path: kematjaya_auth_refresh
+                invalidate_token_on_logout: true
+            jwt: ~
+
+    # Note: only the *first* matching access_control rule is applied.
+    access_control:
+        - { path: ^/api/docs, roles: PUBLIC_ACCESS }               # <- added for API Platform Swagger UI
+        - { path: ^/api/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/token/refresh$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/logout$, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }                        # <- added: catch-all, must be LAST
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

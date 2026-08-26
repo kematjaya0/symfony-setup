@@ -1,0 +1,19 @@
+{
+	frankenphp
+	order php_server before file_server
+}
+
+:8082 {
+	root * /app/public
+	encode zstd gzip
+	php_server
+	file_server
+}
+
+:443 {
+	root * /app/public
+	encode zstd gzip
+	php_server
+	file_server
+	tls internal
+}

@@ -1,0 +1,14 @@
+api_platform:
+    title: API
+    version: 1.0.0
+    enable_swagger_ui: true
+    formats:
+        jsonld: ['application/ld+json']
+        json: ['application/json']
+    defaults:
+        stateless: true
+        pagination_client_items_per_page: true
+        pagination_items_per_page: 30
+        pagination_maximum_items_per_page: 50
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']

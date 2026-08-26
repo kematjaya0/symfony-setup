@@ -1,0 +1,842 @@
+/* ───────────────────────────────────────────
+   AuthKit Design System — Bootstrap 5 Overrides
+   DESIGN.md: Frosted glass cathedral at midnight
+   ─────────────────────────────────────────── */
+
+:root {
+    /* ── Colors ── */
+    --color-midnight-canvas: #05060f;
+    --color-steel-plate: #2f343e;
+    --color-fog-veil: #9da7ba;
+    --color-moon-mist: #c7d3ea;
+    --color-frost-glow: #d1e4fa;
+    --color-ice-highlight: #d8ecf8;
+    --gradient-ice-highlight: linear-gradient(0deg, #d8ecf8 0%, #98c0ef 100%);
+    --color-pure-white: #ffffff;
+    --color-void-violet: #663af3;
+    --color-blueprint-blue: #b6d9fc;
+    --color-gridline-blue: #3f4959;
+    --color-glass-edge: #bad7f71f;
+    --color-luminous-fill: #c7d3ea1f;
+    --color-glass-hairline: rgba(186, 215, 247, 0.06);
+    --color-glass-hairline-strong: rgba(186, 215, 247, 0.12);
+    --color-glass-fill: rgba(199, 211, 234, 0.06);
+    --color-glass-placeholder: rgba(199, 211, 234, 0.6);
+    --color-void-violet-hover: #7a4cf5;
+    --color-void-violet-focus-ring: rgba(102, 58, 243, 0.4);
+
+    /* ── Typography ── */
+    --font-untitled-sans:
+        'Untitled Sans', Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-aeonikpro:
+        'aeonikPro', 'Space Grotesk', ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-dotdigital:
+        'dotDigital', 'JetBrains Mono', ui-monospace, 'SF Mono', Monaco,
+        monospace;
+
+    /* ── Border Radius ── */
+    --radius-cards: 16px;
+    --radius-badges: 6px;
+    --radius-inputs: 6px;
+    --radius-modals: 16px;
+    --radius-buttons: 999px;
+    --radius-iconcontainers: 9999px;
+
+    /* ── Shadows ── */
+    --shadow-auth-card:
+        inset 0 1px 1px rgba(216, 236, 248, 0.2),
+        inset 0 24px 48px rgba(168, 216, 245, 0.06),
+        0 16px 32px rgba(0, 0, 0, 0.3);
+    --shadow-subtle: var(--color-glass-hairline-strong) 0px 0px 0px 1px inset;
+    --shadow-sm: rgba(186, 207, 247, 0.32) 0px 0px 6px 0px;
+    --shadow-md: rgba(238, 186, 247, 0.24) 0px 0px 12px 0px;
+}
+
+/* ── Bootstrap 5 Theme Overrides ── */
+
+/* Dark canvas */
+body {
+    background-color: var(--color-midnight-canvas);
+    font-family: var(--font-untitled-sans);
+    color: var(--color-frost-glow);
+    min-height: 100vh;
+}
+
+/* Links */
+a {
+    color: var(--color-frost-glow);
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+a:hover {
+    color: var(--color-pure-white);
+    opacity: 0.85;
+}
+
+/* Form controls — frosted glass inputs (dark auth pages only; dashboard forms use Bootstrap defaults, which fit its light canvas) */
+.auth-form .form-control {
+    background-color: var(--color-glass-fill);
+    /*border: 1px solid var(--color-glass-hairline-strong);*/
+    border-radius: var(--radius-inputs);
+    color: var(--color-pure-white);
+    font-family: var(--font-untitled-sans);
+    font-size: 16px;
+    padding: 10px 12px;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.auth-form .form-control:focus {
+    background-color: var(--color-glass-fill);
+    border-color: rgba(186, 215, 247, 0.24);
+    /*color: var(--color-pure-white);*/
+    box-shadow: 0 0 0 3px rgba(186, 215, 247, 0.08);
+}
+.auth-form .form-control::placeholder {
+    color: var(--color-glass-placeholder);
+}
+.auth-form .form-control.is-invalid {
+    border-color: var(--color-fog-veil);
+    box-shadow: none;
+}
+
+/* Form labels */
+.form-label {
+    color: var(--color-moon-mist);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+/* Invalid feedback */
+.invalid-feedback {
+    color: var(--color-fog-veil);
+    font-size: 12px;
+}
+
+/* ── Buttons ── */
+
+/* Primary CTA — Void Violet */
+.btn-primary {
+    background-color: var(--color-void-violet);
+    border: none;
+    border-radius: var(--radius-buttons);
+    color: var(--color-pure-white);
+    font-family: var(--font-untitled-sans);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 12px 24px;
+    transition:
+        background-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.btn-primary:hover {
+    background-color: var(--color-void-violet-hover);
+    color: var(--color-pure-white);
+}
+.btn-primary:disabled {
+    background-color: var(--color-void-violet);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.btn-primary:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-void-violet-focus-ring);
+}
+
+/* Ghost pill button */
+.btn-ghost {
+    background-color: var(--color-glass-hairline);
+    border: 1px inset var(--color-glass-hairline-strong);
+    border-radius: var(--radius-buttons);
+    color: var(--color-pure-white);
+    font-family: var(--font-untitled-sans);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 16px;
+    transition: background-color 0.15s ease;
+}
+.btn-ghost:hover {
+    background-color: var(--color-glass-hairline-strong);
+    color: var(--color-pure-white);
+}
+
+/* ── Glass Card ── */
+.glass-card {
+    background-color: rgba(5, 6, 15, 0.97);
+    border: none;
+    border-radius: var(--radius-cards);
+    box-shadow: var(--shadow-auth-card);
+    padding: 24px 32px;
+}
+
+/* ── Focus visible ── */
+:focus-visible {
+    outline: 2px solid var(--color-void-violet);
+    outline-offset: 2px;
+}
+
+/* ── Auth Hero Background ── */
+
+/* Blueprint grid */
+.auth-hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: var(--color-midnight-canvas);
+}
+.auth-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--color-glass-hairline) 1px, transparent 1px),
+        linear-gradient(90deg, var(--color-glass-hairline) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(
+        ellipse 70% 60% at 50% 20%,
+        black 30%,
+        transparent 70%
+    );
+    -webkit-mask-image: radial-gradient(
+        ellipse 70% 60% at 50% 20%,
+        black 30%,
+        transparent 70%
+    );
+    pointer-events: none;
+}
+
+/* Conic spotlight */
+.auth-hero::after {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 600px;
+    background: conic-gradient(
+        at 50% -5%,
+        transparent 45%,
+        rgba(124, 145, 182, 0.3) 49%,
+        rgba(124, 145, 182, 0.5) 50%,
+        rgba(124, 145, 182, 0.3) 51%,
+        transparent 55%
+    );
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+/* ── Wordmark ── */
+.auth-wordmark {
+    font-family: var(--font-aeonikpro);
+    font-weight: 500;
+    font-size: 44px;
+    line-height: 1.14;
+    background: var(--gradient-ice-highlight);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ── Eyebrow ── */
+.auth-eyebrow {
+    font-family: var(--font-dotdigital);
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    color: var(--color-moon-mist);
+    text-transform: uppercase;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+}
+.auth-eyebrow::before,
+.auth-eyebrow::after {
+    content: '';
+    display: block;
+    width: 48px;
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--color-glass-hairline-strong),
+        transparent
+    );
+}
+
+/* ── Auth form container ── */
+.auth-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    padding: 0 16px;
+}
+
+/* ── Form spacing ── */
+.auth-form .mb-3 {
+    margin-bottom: 20px;
+}
+
+/* ── Server error alert ── */
+.alert-auth {
+    background-color: var(--color-glass-hairline);
+    border: 1px inset var(--color-glass-hairline-strong);
+    border-radius: var(--radius-inputs);
+    color: var(--color-fog-veil);
+    font-size: 13px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    margin-bottom: 0;
+}
+
+/* ── Landing page (minimal resets for existing styles) ── */
+.shell {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* Keep existing focus outline utility */
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ───────────────────────────────────────────
+   Dashboard — Dub Design System (DASHBOARD-DESIGN.md)
+   ─────────────────────────────────────────── */
+
+:root {
+    --color-canvas-white: #ffffff;
+    --color-paper-mist: #f5f5f5;
+    --color-ash: #e5e5e5;
+    --color-smoke: #d4d4d4;
+    --color-midnight-ink: #0a0a0a;
+    --color-charcoal: #171717;
+    --color-graphite: #262626;
+    --color-slate: #404040;
+    --color-steel: #525252;
+    --color-fog: #737373;
+    --color-silver: #a3a3a3;
+    --color-electric-blue: #2563eb;
+    --color-deep-sapphire: #1e40af;
+    --color-soft-mint: #dcfce7;
+    --color-vivid-green: #16a34a;
+    --color-tangerine: #ea580c;
+    --color-tangerine-soft: rgba(234, 88, 12, 0.1);
+    --color-danger: #dc2626;
+    --color-lavender: #7c3aed;
+    --color-primary-action-fill: #000000;
+    --color-electric-blue-tint: #dbeaff;
+
+    --font-inter:
+        'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        'Segoe UI', Roboto, sans-serif;
+    --font-satoshi:
+        'Satoshi', 'Inter', ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+    --radius-tags: 9999px;
+    --radius-cards: 12px;
+    --radius-inputs: 6px;
+    --radius-buttons: 8px;
+    --radius-largecards: 16px;
+
+    --sidebar-width: 240px;
+    --header-height: 56px;
+}
+
+/* ── Dashboard Shell ── */
+.dashboard-body {
+    background: var(--color-canvas-white);
+    font-family: var(--font-inter);
+    color: var(--color-charcoal);
+    min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--color-canvas-white);
+    border-right: 1px solid var(--color-ash);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-ash);
+    font-family: var(--font-inter);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-charcoal);
+    text-decoration: none;
+}
+
+.sidebar-logo:hover {
+    color: var(--color-charcoal);
+}
+
+.sidebar-logo .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--color-electric-blue);
+    border-radius: var(--radius-buttons);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-fog);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 12px 6px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-buttons);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-charcoal);
+    text-decoration: none;
+    transition: background 0.1s ease;
+}
+
+.sidebar-item:hover {
+    background: var(--color-paper-mist);
+    color: var(--color-charcoal);
+}
+
+.sidebar-item.active {
+    background: var(--color-electric-blue-tint);
+    color: var(--color-electric-blue);
+}
+
+.sidebar-item i {
+    font-size: 18px;
+    width: 20px;
+    text-align: center;
+    color: var(--color-fog);
+}
+
+.sidebar-item.active i {
+    color: var(--color-electric-blue);
+}
+
+.sidebar-item:hover i {
+    color: var(--color-slate);
+}
+
+.sidebar-item.active:hover i {
+    color: var(--color-electric-blue);
+}
+
+/* ── Header ── */
+.dashboard-header {
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    height: var(--header-height);
+    background: var(--color-canvas-white);
+    border-bottom: 1px solid var(--color-ash);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 99;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-breadcrumb {
+    font-size: 14px;
+    color: var(--color-fog);
+}
+
+.header-breadcrumb span {
+    color: var(--color-charcoal);
+    font-weight: 500;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Header dropdowns ── */
+.header-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-buttons);
+    border: none;
+    background: transparent;
+    color: var(--color-slate);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    position: relative;
+}
+
+.header-btn:hover {
+    background: var(--color-paper-mist);
+    color: var(--color-charcoal);
+}
+
+.header-btn i {
+    font-size: 18px;
+}
+
+.notification-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--color-electric-blue);
+    border: 2px solid var(--color-canvas-white);
+    border-radius: 50%;
+}
+
+/* User avatar button */
+.user-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    border-radius: var(--radius-buttons);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    color: var(--color-charcoal);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.user-btn:hover {
+    background: var(--color-paper-mist);
+}
+
+.user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--color-electric-blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ── Dropdown menus (Bootstrap overrides) ── */
+.dashboard-dropdown .dropdown-menu {
+    right: 0;
+    left: auto;
+    border: 1px solid var(--color-ash);
+    border-radius: var(--radius-cards);
+    box-shadow: var(--shadow-subtle);
+    padding: 4px;
+    margin-top: 6px !important;
+    min-width: 200px;
+}
+
+.dashboard-dropdown .dropdown-item {
+    border-radius: var(--radius-buttons);
+    font-size: 14px;
+    padding: 8px 12px;
+    color: var(--color-charcoal);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dashboard-dropdown .dropdown-item:hover {
+    background: var(--color-paper-mist);
+}
+
+.dashboard-dropdown .dropdown-item i {
+    font-size: 16px;
+    color: var(--color-fog);
+    width: 18px;
+}
+
+.dashboard-dropdown .dropdown-divider {
+    margin: 4px 0;
+    border-color: var(--color-ash);
+}
+
+.dashboard-dropdown .dropdown-header {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-fog);
+    padding: 8px 12px 4px;
+}
+
+/* Notification dropdown wider */
+.notif-dropdown .dropdown-menu {
+    min-width: 320px;
+    max-width: 360px;
+}
+
+.notif-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 12px !important;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.notif-item .notif-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-buttons);
+    background: var(--color-paper-mist);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.notif-item .notif-icon i {
+    font-size: 14px;
+    color: var(--color-electric-blue);
+}
+
+.notif-item .notif-text {
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--color-charcoal);
+}
+
+.notif-item .notif-time {
+    font-size: 11px;
+    color: var(--color-fog);
+    white-space: nowrap;
+}
+
+/* ── Dashboard main content ── */
+.dashboard-main {
+    margin-left: var(--sidebar-width);
+    margin-top: var(--header-height);
+    min-height: calc(100vh - var(--header-height));
+    background: var(--color-canvas-white);
+}
+
+.dashboard-content {
+    padding: 24px;
+}
+
+/* ── Dashboard cards ── */
+.dash-card {
+    background: var(--color-canvas-white);
+    border: 1px solid var(--color-ash);
+    border-radius: var(--radius-cards);
+    padding: 16px;
+}
+
+.dash-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.dash-card-title {
+    font-family: var(--font-inter);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-charcoal);
+    margin: 0;
+}
+
+.dash-card-subtitle {
+    font-size: 13px;
+    color: var(--color-fog);
+    margin: 2px 0 0;
+}
+
+/* Stat cards */
+.stat-card {
+    background: var(--color-canvas-white);
+    border: 1px solid var(--color-ash);
+    border-radius: var(--radius-cards);
+    padding: 16px;
+}
+
+.stat-card .stat-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-fog);
+    margin-bottom: 4px;
+}
+
+.stat-card .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-charcoal);
+    font-family: var(--font-inter);
+}
+
+.stat-card .stat-change {
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+.stat-card .stat-change.up {
+    color: var(--color-vivid-green);
+}
+
+.stat-card .stat-change.down {
+    color: var(--color-tangerine);
+}
+
+/* Table style */
+.dash-table {
+    width: 100%;
+    font-size: 14px;
+}
+
+.dash-table th {
+    font-weight: 600;
+    color: var(--color-fog);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-ash);
+    text-align: left;
+}
+
+.dash-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-ash);
+    color: var(--color-charcoal);
+    vertical-align: middle;
+}
+
+.dash-table tr:last-child td {
+    border-bottom: none;
+}
+
+.dash-table-scroll {
+    overflow-x: auto;
+}
+
+.dash-table .form-check-input {
+    margin: 0;
+}
+
+/* Status badge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: var(--radius-tags);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.status-badge.active {
+    background: var(--color-soft-mint);
+    color: var(--color-vivid-green);
+}
+
+.status-badge.active .dot {
+    background: var(--color-vivid-green);
+}
+
+.status-badge.pending {
+    background: var(--color-tangerine-soft);
+    color: var(--color-tangerine);
+}
+
+.status-badge.pending .dot {
+    background: var(--color-tangerine);
+}
+
+/* Responsive fix */
+@media (max-width: 768px) {
+    .dashboard-sidebar {
+        width: 56px;
+    }
+    .dashboard-sidebar .sidebar-item span,
+    .dashboard-sidebar .sidebar-section-label {
+        display: none;
+    }
+    .user-btn > span:not(.user-avatar) {
+        display: none;
+    }
+    .dashboard-header {
+        left: 56px;
+    }
+    .dashboard-main {
+        margin-left: 56px;
+    }
+}
+
+/* ── Toast animation ── */
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}

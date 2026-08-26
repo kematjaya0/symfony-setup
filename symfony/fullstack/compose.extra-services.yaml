@@ -1,0 +1,14 @@
+
+  # Profile terpisah supaya TIDAK ikut jalan otomatis saat "docker compose up".
+  # Jalankan eksplisit: docker compose --profile e2e run --rm playwright
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.48.0-noble
+    profiles: ["e2e"]
+    depends_on:
+      - php
+    working_dir: /e2e
+    environment:
+      BASE_URL: "http://php:8082"
+    volumes:
+      - ./e2e:/e2e
+    command: sh -c "npm ci && npx playwright test"

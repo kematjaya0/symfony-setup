@@ -1,0 +1,15 @@
+services:
+  php:
+    build:
+      target: frankenphp_prod
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    volumes:
+      # Di prod TIDAK bind-mount source code; source sudah di-COPY ke image.
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+  database:
+    restart: unless-stopped
