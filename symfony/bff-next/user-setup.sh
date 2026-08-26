@@ -55,7 +55,13 @@ fix_ownership() {
 }
 
 echo -e "📦 ${GREEN}Menginstal API Platform (kontrak JSON:API untuk frontend Next.js)...${NC}"
-docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm --no-interaction
+# symfony/twig-bundle WAJIB ikut di sini (bukan cuma api-platform/symfony +
+# api-platform/doctrine-orm) — Swagger UI (/api/docs, halaman HTML-nya,
+# BUKAN endpoint JSON-LD) di-render lewat Twig oleh ApiPlatform\Symfony\
+# Bundle\SwaggerUi\SwaggerUiProcessor. Tanpa ini /api/docs 500 dengan pesan
+# "The documentation cannot be displayed since the Twig bundle is not
+# installed." — diverifikasi manual lewat generate nyata.
+docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm symfony/twig-bundle --no-interaction
 
 echo "== Ensure project files are writable from host =="
 fix_ownership
@@ -154,26 +160,10 @@ docker compose exec php composer require kematjaya/access-control-bundle --no-in
 echo -e "🔧 ${GREEN}Menjalankan installer RBAC (bin/access-control-setup.sh)...${NC}"
 docker compose exec php bash bin/access-control-setup.sh
 
-# access-control-setup.sh cuma copy_if_missing manifest GENERIK dari recipe
-# bundle (cuma berisi "Dashboard") — frontend template bff-next sudah punya
-# halaman /dashboard/admin (lihat frontend/src/app/dashboard/admin), jadi
-# item menu "Admin" ditambahkan di sini supaya nav-nya benar-benar muncul
-# untuk ROLE_ADMIN, bukan cuma halamannya ada tapi tidak ke-link dari mana pun.
-fix_ownership
-if ! grep -q "key: admin$" backend/config/permissions/default.yaml; then
-    cat >> backend/config/permissions/default.yaml <<'YAML'
-
-    - name: Administration
-      items:
-          - key: admin
-            label: Admin
-            href: /dashboard/admin
-            icon: admin
-            roles: [ROLE_ADMIN]
-            defaultRoles: [ROLE_ADMIN]
-YAML
-    docker compose exec php php bin/console kematjaya:access-control:sync
-fi
+# access-control-setup.sh sudah menulis config/permissions/default.yaml
+# lengkap (Dashboard bawaan recipe bundle + Access Control ditambahkan
+# access-control-setup.sh) dan sudah men-sync sendiri di akhir — tidak ada
+# yang perlu ditambahkan lagi di sini.
 
 echo -e "\n📝 ${GREEN}Membuat fixture user (admin@example.com / user@example.com)...${NC}"
 docker compose exec php composer require doctrine/doctrine-fixtures-bundle --dev --no-interaction

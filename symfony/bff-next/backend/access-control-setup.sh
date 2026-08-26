@@ -87,6 +87,29 @@ blue "Copying config fragments from the bundle's own recipe"
 copy_if_missing "$RECIPE_DIR/config/routes/kematjaya_access_control.yaml" "config/routes/kematjaya_access_control.yaml"
 copy_if_missing "$RECIPE_DIR/config/permissions/default.yaml" "config/permissions/default.yaml"
 
+# 3b. Register an "Access Control" menu item — the recipe's manifest above
+# only ships a generic "Dashboard" section (which every user already gets,
+# nothing to add there), so without this the bundle's own admin UI
+# (frontend/src/app/dashboard/admin/access-control) exists but has nothing
+# in the sidebar linking to it.
+blue "Registering 'Access Control' menu item"
+if grep -q "key: access_control$" config/permissions/default.yaml; then
+    yellow "skipped menu item (key 'access_control' already present)"
+else
+    cat >> config/permissions/default.yaml <<'YAML'
+
+    - name: Administration
+      items:
+          - key: access_control
+            label: Access Control
+            href: /dashboard/admin/access-control
+            icon: bi-grid-3x3
+            roles: [ROLE_ADMIN]
+            gated: true
+YAML
+    blue "wrote 'Access Control' menu item"
+fi
+
 # 4. .env var the manifest_profile above reads
 blue ".env variables"
 if [[ -f .env ]] && grep -q '^PERMISSIONS_PROFILE=' .env; then
