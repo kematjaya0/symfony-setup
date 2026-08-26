@@ -23,6 +23,55 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/symfony"
 COMMON_TEMPLATE_DIR="$TEMPLATE_DIR/common"
 
+# ==========================================
+# Cleanup otomatis kalau gagal di tengah jalan — folder project separuh jadi
+# DAN container yang sempat "docker compose up -d" dibersihkan, supaya host
+# kembali persis seperti sebelum script dijalankan, bukan cuma exit dengan
+# pesan error lalu meninggalkan sampah. CLEANUP_ON_FAILURE baru jadi 1
+# setelah folder project benar-benar dibuat SENDIRI oleh run ini (lihat
+# dekat "mkdir -p $PROJECT_NAME" di bawah) — supaya precondition check di
+# awal (Docker belum ada, nama kosong, dst., sebelum apa pun dibuat) tidak
+# memicu cleanup yang tidak perlu.
+# ==========================================
+ORIGINAL_DIR="$PWD"
+PROJECT_DIR_ABS=""
+CLEANUP_ON_FAILURE=0
+
+cleanup_on_failure() {
+    local exit_code=$?
+    trap - ERR EXIT INT TERM
+
+    if [ "$exit_code" -eq 0 ]; then
+        return
+    fi
+
+    if [ "$CLEANUP_ON_FAILURE" -ne 1 ] || [ -z "$PROJECT_DIR_ABS" ] || [ ! -d "$PROJECT_DIR_ABS" ]; then
+        exit "$exit_code"
+    fi
+
+    echo -e "\n${YELLOW}🧹 Membersihkan hasil setup yang gagal (folder + container)...${NC}"
+
+    # docker compose down (bukan cuma rm -rf folder) supaya container/network/
+    # volume bernama yang sempat dibuat "docker compose up -d" ikut hilang —
+    # kalau tidak, mereka jadi orphan permanen (compose.yaml-nya sudah lenyap
+    # bareng folder, tidak ada cara lain mengenalinya lagi). Image hasil
+    # build SENGAJA tidak dihapus (tidak ada --rmi) — biar retry berikutnya
+    # masih kena cache layer Docker, filosofinya sama seperti
+    # COMPOSER_CACHE_HOST_DIR yang sengaja dipertahankan lintas-run.
+    if [ -f "$PROJECT_DIR_ABS/compose.yaml" ]; then
+        (cd "$PROJECT_DIR_ABS" && docker compose down -v --remove-orphans) 2>/dev/null || true
+    fi
+
+    cd "$ORIGINAL_DIR" 2>/dev/null || true
+    rm -rf -- "$PROJECT_DIR_ABS"
+    echo -e "${GREEN}✅ Folder '$PROJECT_NAME' dan container terkait sudah dibersihkan — kembali seperti sebelum script dijalankan.${NC}"
+
+    exit "$exit_code"
+}
+
+trap cleanup_on_failure EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 trap 'echo -e "\n${RED}❌ Terjadi error pada baris $LINENO. Proses dihentikan.${NC}"' ERR
 
 # ==========================================
@@ -188,6 +237,8 @@ else
 fi
 
 mkdir -p "$PROJECT_NAME"
+PROJECT_DIR_ABS="$ORIGINAL_DIR/$PROJECT_NAME"
+CLEANUP_ON_FAILURE=1
 cd "$PROJECT_NAME"
 
 # ==========================================

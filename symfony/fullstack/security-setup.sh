@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
+
+trap 'echo -e "\n${RED}❌ Terjadi error pada baris $LINENO. Proses dihentikan.${NC}"' ERR
 
 echo -e "🔧 ${GREEN}Memastikan file project bisa ditulis dari host...${NC}"
 docker compose exec -T php sh -c "chown -R $(id -u):$(id -g) /app/src /app/config" 2>/dev/null || true
@@ -64,7 +66,13 @@ YAML
 fi
 
 echo -e "🔐 ${GREEN}Mengatur backend security...${NC}"
-python3 - <<'PY'
+# Auto-merge HANYA untuk bentuk default hasil 'make:security:form-login'
+# (diverifikasi manual sekali lewat generate nyata) — kalau bentuknya sudah
+# beda (belum dijalankan, atau file sudah di-custom manual), python di bawah
+# exit non-zero via SystemExit, dan di-tangkap di sini supaya jatuh ke
+# instruksi manual, bukan mematikan seluruh script. Pola yang sama seperti
+# auto-merge security.yaml di bff-next/user-setup.sh.
+if python3 - <<'PY'
 from pathlib import Path
 
 path = Path('config/packages/security.yaml')
@@ -129,6 +137,46 @@ if backend_rule not in text:
 
 path.write_text(text)
 PY
+then
+    echo -e "✅ ${GREEN}config/packages/security.yaml berhasil di-merge otomatis.${NC}"
+else
+    echo -e "${YELLOW}============================================================${NC}"
+    echo -e "${YELLOW}⚠️  LANGKAH MANUAL WAJIB: atur config/packages/security.yaml${NC}"
+    echo -e "${YELLOW}============================================================${NC}"
+    echo -e "${BLUE}Auto-merge di-skip — bentuk config/packages/security.yaml tidak seperti${NC}"
+    echo -e "${BLUE}yang diharapkan (default hasil 'make:security:form-login'). Kemungkinan${NC}"
+    echo -e "${BLUE}penyebab: perintah itu belum dijalankan, atau file sudah di-custom manual.${NC}"
+    echo ""
+    echo -e "${GREEN}Pastikan dulu sudah menjalankan:${NC}"
+    echo -e "  docker compose exec php php bin/console make:security:form-login"
+    echo ""
+    echo -e "${BLUE}Lalu merge manual, bandingkan config/packages/security.yaml dengan:${NC}"
+    echo ""
+    cat > security-snippet.yaml <<'YAML'
+# NOT auto-merged — deliberately manual. Pastikan config/packages/security.yaml
+# berisi 3 perubahan berikut (di atas hasil 'make:security:form-login'):
+
+security:
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        main:
+            provider: app_user_provider
+            form_login:
+                default_target_path: dashboard_index
+                always_use_default_target_path: true
+
+    access_control:
+        - { path: ^/backend, roles: ROLE_ADMIN }
+YAML
+    echo -e "📄 ${GREEN}security-snippet.yaml${NC} ditulis di root project — buka berdampingan"
+    echo -e "   dengan ${GREEN}config/packages/security.yaml${NC}, merge manual, lalu hapus file ini."
+    echo ""
+fi
 
 echo -e "🎨 ${GREEN}Menyiapkan Bootstrap untuk custom UI login...${NC}"
 docker compose exec php php bin/console importmap:require bootstrap bootstrap/dist/css/bootstrap.min.css

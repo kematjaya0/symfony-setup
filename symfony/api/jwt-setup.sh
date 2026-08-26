@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
+
+trap 'echo -e "\n${RED}❌ Terjadi error pada baris $LINENO. Proses dihentikan.${NC}"' ERR
 
 echo -e "📦 ${GREEN}Menginstal lexik/jwt-authentication-bundle...${NC}"
 docker compose exec php composer require lexik/jwt-authentication-bundle --no-interaction
