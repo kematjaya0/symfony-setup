@@ -314,12 +314,22 @@ nama-project/
 └── Makefile                              # shortcut setara, gaya `make` (symfony.bash)
 ```
 
-Ada juga `.frontend-template/` (dotfolder, tidak nongol di `ls` biasa) —
-salinan internal template `frontend/` supaya `bin/frontend-setup.sh` bisa
-di-generate ulang kapan saja tanpa bergantung ke lokasi instalasi
-`symfony.bash` (project hasil generate tetap self-contained walau
-`symfony-new` di-uninstall atau dipindah ke mesin lain). Jangan diedit
-manual — edit langsung di `frontend/` setelah itu.
+Root project tidak punya folder template tambahan apa pun — cuma
+`backend/`+`frontend/` seperti di atas (`bin/frontend-setup.sh` build ke
+folder staging sementara `frontend-tmp/` dulu — hanya ada SELAMA proses
+generate berjalan — baru di-rename jadi `frontend/` begitu semua langkah
+sukses; kalau gagal di tengah jalan, `frontend-tmp/` otomatis dihapus dan
+`frontend/` tidak pernah ada dalam keadaan setengah jadi).
+
+Konsekuensinya: `bin/frontend-setup.sh` butuh instalasi `symfony.bash` yang
+generate project ini masih ada di mesin yang sama untuk bisa di-generate
+ULANG (mis. setelah `rm -rf frontend`) — path lokasi template dibakar
+langsung ke `bin/frontend-setup.sh` saat generate. Kalau generatornya sudah
+di-`symfony-new uninstall`, project dipindah ke mesin lain, atau lokasi
+instalasi berubah, `bin/frontend-setup.sh` berhenti dengan pesan error jelas
++ instruksi install ulang (bukan silent-fail atau menebak lokasi lain).
+Generate ulang SELURUH project (bukan cuma frontend) tetap bisa kapan saja
+lewat `symfony.bash`/`symfony-new` di mesin mana pun.
 
 Project hasil generate dapat **dua** cara orkestrasi setara — `Makefile`
 (`make dev`, `make console <cmd>`, `make composer <cmd>`, `make test-backend`,

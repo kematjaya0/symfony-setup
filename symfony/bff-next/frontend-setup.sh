@@ -46,11 +46,42 @@ if [[ -d frontend ]]; then
     exit 1
 fi
 
-TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.frontend-template" 2>/dev/null && pwd || true)"
-if [[ -z "$TEMPLATE_DIR" ]]; then
-    echo -e "${RED}Error: template frontend tidak ditemukan (.frontend-template). Script ini dipanggil dari lokasi yang salah.${NC}"
+# Root project TIDAK menyimpan salinan template sendiri (cuma backend/+frontend/,
+# tanpa folder template apa pun) — path di bawah ini di-bakar LANGSUNG ke file
+# ini oleh symfony.bash saat generate (lihat "render_template ... bin/frontend-setup.sh"
+# di symfony.bash), jadi menunjuk ke lokasi instalasi generator di MESIN INI saat
+# project ini di-generate. Konsekuensinya: kalau instalasi symfony.bash sudah
+# di-`symfony-new uninstall`, project ini dipindah ke mesin lain, atau lokasi
+# instalasi berubah — script ini gagal jelas di bawah, BUKAN dibiarkan
+# silent-fail atau menebak lokasi lain.
+TEMPLATE_DIR="@@FRONTEND_TEMPLATE_SOURCE@@"
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+    echo -e "${RED}Error: template frontend generator tidak ditemukan di:${NC}" >&2
+    echo -e "${RED}  $TEMPLATE_DIR${NC}" >&2
+    echo -e "${YELLOW}Kemungkinan penyebab: symfony-new sudah di-uninstall, project ini${NC}" >&2
+    echo -e "${YELLOW}dipindah ke mesin lain, atau lokasi instalasi generator berubah.${NC}" >&2
+    echo -e "${YELLOW}Install ulang generator, lalu generate ULANG SELURUH project dari awal${NC}" >&2
+    echo -e "${YELLOW}(bukan cuma frontend-nya — bin/frontend-setup.sh butuh template ini):${NC}" >&2
+    echo -e "${GREEN}  curl -fsSL https://raw.githubusercontent.com/kematjaya0/symfony-setup/main/install.sh | bash${NC}" >&2
     exit 1
 fi
+
+# frontend-tmp = folder staging sementara — Next.js di-generate & di-overlay di sini
+# dulu, baru di-rename jadi "frontend/" di akhir kalau SEMUA langkah build
+# sukses (lihat STEP 3b). Ini bikin "frontend/" atomik: tidak pernah ada
+# dalam keadaan setengah jadi kalau script ini gagal di tengah jalan.
+if [[ -d frontend-tmp ]]; then
+    echo -e "${RED}Error: folder 'frontend-tmp' (staging sementara) masih ada, kemungkinan sisa run sebelumnya yang gagal.${NC}"
+    echo -e "${YELLOW}Hapus dulu: rm -rf frontend-tmp${NC}"
+    exit 1
+fi
+cleanup_tmp_on_failure() {
+    local exit_code=$?
+    if [ "$exit_code" -ne 0 ] && [ -d frontend-tmp ]; then
+        rm -rf frontend-tmp
+    fi
+}
+trap cleanup_tmp_on_failure EXIT
 
 NODE_IMAGE="node:24-alpine"
 
@@ -58,17 +89,17 @@ run_node() {
     docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$ROOT_DIR":/workspace -w /workspace "$NODE_IMAGE" "$@"
 }
 
-run_node_in_frontend() {
-    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$ROOT_DIR/frontend":/app -w /app "$NODE_IMAGE" "$@"
+run_node_in_tmp() {
+    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$ROOT_DIR/frontend-tmp":/app -w /app "$NODE_IMAGE" "$@"
 }
 
 # ==========================================
-# STEP 1 — Generate Next.js skeleton fresh (bukan copy dari template lama —
-# supaya selalu ikut versi Next.js terbaru, lihat catatan di bff-next/README.md
-# soal kenapa clone tarball dihindari).
+# STEP 1 — Generate Next.js skeleton fresh ke "frontend-tmp" (bukan copy dari template
+# lama — supaya selalu ikut versi Next.js terbaru, lihat catatan di
+# bff-next/README.md soal kenapa clone tarball dihindari).
 # ==========================================
 echo -e "🛠️  ${GREEN}Generating skeleton Next.js di dalam container sementara...${NC}"
-run_node npx --yes create-next-app@latest frontend \
+run_node npx --yes create-next-app@latest frontend-tmp \
     --typescript --eslint --app --src-dir --import-alias "@/*" \
     --no-tailwind --no-turbopack --use-npm --yes
 
@@ -81,18 +112,18 @@ echo -e "📦 ${GREEN}Menginstal @kematjaya/auth-ui, access-control-ui, bootstra
 # zod di-pin eksplisit ke v4 — tanpa ini npm kadang keburu resolve zod@3.x
 # (dari peerOptional package lain) SEBELUM sempat lihat @kematjaya/auth-ui
 # mensyaratkan zod@>=4, lalu gagal ERESOLVE karena conflict versi mayor.
-run_node_in_frontend npm install \
+run_node_in_tmp npm install \
     @kematjaya/auth-ui @kematjaya/access-control-ui @kematjaya/bootstrap-ui-kit \
     bootstrap bootstrap-icons react-hook-form @hookform/resolvers "zod@^4"
 
 echo -e "📦 ${GREEN}Menginstal openapi-typescript (dev)...${NC}"
-run_node_in_frontend npm install --save-dev openapi-typescript
+run_node_in_tmp npm install --save-dev openapi-typescript
 
 echo -e "📦 ${GREEN}Menginstal vitest + testing-library (dev, untuk tests/unit/*)...${NC}"
 # tests/unit/bff.test.ts di-copy dari template di STEP 3 di bawah, tapi
 # vitest/testing-library TIDAK datang dari create-next-app — tanpa ini
 # testnya ke-copy tapi tidak pernah bisa dijalankan (no test runner).
-run_node_in_frontend npm install --save-dev vitest @vitejs/plugin-react jsdom \
+run_node_in_tmp npm install --save-dev vitest @vitejs/plugin-react jsdom \
     @testing-library/react @testing-library/jest-dom @testing-library/user-event
 
 # Di-pin (bukan "latest") supaya versi npm package ini SELALU cocok dengan
@@ -102,7 +133,7 @@ run_node_in_frontend npm install --save-dev vitest @vitejs/plugin-react jsdom \
 # @playwright/test, kalau tidak playwright akan menolak jalan.
 PLAYWRIGHT_VERSION="1.62.1"
 echo -e "📦 ${GREEN}Menginstal @playwright/test@${PLAYWRIGHT_VERSION} (dev, untuk tests/e2e/*)...${NC}"
-run_node_in_frontend npm install --save-dev "@playwright/test@${PLAYWRIGHT_VERSION}"
+run_node_in_tmp npm install --save-dev "@playwright/test@${PLAYWRIGHT_VERSION}"
 
 # ==========================================
 # STEP 3 — Timpa file default create-next-app dengan template generik
@@ -110,31 +141,32 @@ run_node_in_frontend npm install --save-dev "@playwright/test@${PLAYWRIGHT_VERSI
 # di dalamnya, lihat bff-next/README.md.
 # ==========================================
 echo -e "📝 ${GREEN}Menyalin template frontend generik...${NC}"
-cp -r "$TEMPLATE_DIR/src/." frontend/src/
-cp "$TEMPLATE_DIR/Dockerfile" frontend/Dockerfile
-cp "$TEMPLATE_DIR/.dockerignore" frontend/.dockerignore
-mkdir -p frontend/scripts
-cp "$TEMPLATE_DIR/scripts/generate-api-types.mjs" frontend/scripts/generate-api-types.mjs
-cp "$TEMPLATE_DIR/scripts/generate-api-types-docker.sh" frontend/scripts/generate-api-types-docker.sh
-chmod +x frontend/scripts/generate-api-types-docker.sh
+cp -r "$TEMPLATE_DIR/src/." frontend-tmp/src/
+cp "$TEMPLATE_DIR/Dockerfile" frontend-tmp/Dockerfile
+cp "$TEMPLATE_DIR/.dockerignore" frontend-tmp/.dockerignore
+mkdir -p frontend-tmp/scripts
+cp "$TEMPLATE_DIR/scripts/generate-api-types.mjs" frontend-tmp/scripts/generate-api-types.mjs
+cp "$TEMPLATE_DIR/scripts/generate-api-types-docker.sh" frontend-tmp/scripts/generate-api-types-docker.sh
+chmod +x frontend-tmp/scripts/generate-api-types-docker.sh
 
 # generate-api-types.mjs resolve backend lewat "../backend" (relatif dari
-# frontend/scripts/) — sudah benar apa adanya karena project ini sekarang
-# pakai layout backend/+frontend/ (bukan flat), jadi tidak perlu di-patch.
+# frontend/scripts/, setelah frontend-tmp di-rename jadi frontend/ di STEP 3b) —
+# sudah benar apa adanya karena project ini pakai layout backend/+frontend/
+# (bukan flat), jadi tidak perlu di-patch.
 
 if [[ -d "$TEMPLATE_DIR/tests" ]]; then
-    mkdir -p frontend/tests
-    cp -r "$TEMPLATE_DIR/tests/." frontend/tests/
+    mkdir -p frontend-tmp/tests
+    cp -r "$TEMPLATE_DIR/tests/." frontend-tmp/tests/
 fi
 if [[ -f "$TEMPLATE_DIR/vitest.config.ts" ]]; then
-    cp "$TEMPLATE_DIR/vitest.config.ts" "$TEMPLATE_DIR/vitest.setup.ts" frontend/
+    cp "$TEMPLATE_DIR/vitest.config.ts" "$TEMPLATE_DIR/vitest.setup.ts" frontend-tmp/
 fi
 if [[ -f "$TEMPLATE_DIR/playwright.config.ts" ]]; then
-    cp "$TEMPLATE_DIR/playwright.config.ts" frontend/
+    cp "$TEMPLATE_DIR/playwright.config.ts" frontend-tmp/
 fi
 
 echo -e "📝 ${GREEN}Menambahkan script api:types + nama project ke package.json...${NC}"
-run_node_in_frontend node -e '
+run_node_in_tmp node -e '
 const fs = require("fs");
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 pkg.name = `${process.env.PROJECT_NAME}-frontend`;
@@ -145,6 +177,15 @@ pkg.scripts["test"] = "vitest run";
 pkg.scripts["test:e2e"] = "playwright test";
 fs.writeFileSync("package.json", JSON.stringify(pkg, null, 4) + "\n");
 '
+
+# ==========================================
+# STEP 3b — Semua langkah build (create-next-app, npm install, overlay
+# template) sukses sampai sini — baru sekarang "frontend-tmp" jadi "frontend/" yang
+# sesungguhnya. Sebelum titik ini, kalau script gagal di mana pun,
+# "frontend/" TIDAK PERNAH ada dalam keadaan setengah jadi (trap di atas
+# otomatis rm -rf "frontend-tmp" kalau gagal).
+# ==========================================
+mv frontend-tmp frontend
 
 # ==========================================
 # STEP 4 — src/config/auth.ts sudah env-driven (API_INTERNAL_URL/APP_ORIGIN),

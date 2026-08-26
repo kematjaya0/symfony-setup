@@ -187,11 +187,15 @@ sekarang punya menu "3) Full-stack: Symfony API + Next.js" yang:
   tanpa `api-platform/*`/`nelmio/cors-bundle`, itu dipasang `user-setup.sh`
   supaya tidak dobel-install/konflik)
 - copy `user-setup.sh` → `bin/user-setup.sh`, `frontend-setup.sh` →
-  `bin/frontend-setup.sh`, `backend/access-control-setup.sh` →
-  `backend/bin/access-control-setup.sh` (update 2026-08-26: dipanggil dari
-  DALAM container php, jadi ikut folder `backend/`, bukan `bin/` root — lihat
-  entri restructure di bawah), `frontend/` → `.frontend-template/` (update
-  2026-08-26: dotfolder, sebelumnya `bff-next-template/frontend/`)
+  `bin/frontend-setup.sh` (update 2026-08-26 kedua: `frontend-setup.sh`
+  sekarang DI-RENDER — bukan `cp` polos — path absolut template frontend
+  dibakar langsung ke dalamnya, lihat entri paling bawah), dan
+  `backend/access-control-setup.sh` → `backend/bin/access-control-setup.sh`
+  (update 2026-08-26 pertama: dipanggil dari DALAM container php, jadi ikut
+  folder `backend/`, bukan `bin/` root — lihat entri restructure di bawah).
+  `frontend/` TIDAK di-copy ke project hasil generate sama sekali lagi
+  (update 2026-08-26 kedua — sebelumnya sempat `bff-next-template/frontend/`
+  lalu `.frontend-template/`, keduanya sudah dihapus).
 - README.md project hasil generate dapat section "Auth, RBAC, dan Frontend
   Next.js" otomatis
 
@@ -341,3 +345,51 @@ tidak berubah, masih penting), cuma tidak nongol di `ls` biasa lagi.
 Diubah: `symfony.bash` (`cp -r ... .frontend-template`, tanpa `mkdir -p`
 terpisah karena `cp -r src dst` membuat `dst` langsung kalau belum ada) dan
 `frontend-setup.sh` (`TEMPLATE_DIR` resolve ke `../.frontend-template`).
+
+## `.frontend-template/` dihapus total — bakar path absolut + staging `frontend-tmp/` (2026-08-26)
+
+User tetap keberatan dengan entri di atas: mau root project BENAR-BENAR
+cuma `backend/`+`frontend/`, tanpa folder template apa pun sama sekali,
+tersembunyi ataupun tidak — "persis seperti project boilerplate". Ditanya
+apa yang jadi kendala; dijelaskan dua hal: (1) `create-next-app` menolak
+target folder yang tidak kosong, jadi overlay kode custom kita tidak bisa
+langsung ke `frontend/` sebelum `create-next-app` selesai — butuh lokasi
+lain buat naruh materi overlay-nya; (2) materi overlay itu (login/register/
+dashboard/proxy.ts) butuh sumber yang PERSISTEN di suatu tempat supaya
+`frontend-setup.sh` bisa di-generate ulang nanti. Ditawarkan 2 opsi: (a)
+copy statis persis boilerplate (Next.js version beku), atau (b) tetap
+`create-next-app@latest` tapi staging-nya di lokasi sementara yang hilang
+total setelah dipakai — trade-off: source overlay-nya harus dibaca dari
+LOKASI INSTALASI GENERATOR, bukan disalin ke project, jadi regenerate nanti
+butuh generator itu masih terpasang. User pilih (b), dan ditanya lebih
+spesifik lagi soal konsekuensi gagalnya (uninstall/pindah mesin/versi beda)
+— jawabannya: gagal jelas + instruksi install ulang (bukan silent-fail,
+bukan juga dipertahankan balik ke opsi simpan-copy-lokal).
+
+Implementasi:
+- `symfony.bash`: BERHENTI menyalin `.frontend-template` sama sekali.
+  `bin/frontend-setup.sh` sekarang di-`render_template` (bukan `cp` polos)
+  dengan token `@@FRONTEND_TEMPLATE_SOURCE@@` diganti path absolut
+  `$TYPE_TEMPLATE_DIR/frontend` (`symfony/bff-next/frontend` di instalasi
+  generator, di MESIN INI, saat generate INI) — pola yang sama seperti
+  render `Dockerfile`/`package.json`.
+- `frontend-setup.sh`: `TEMPLATE_DIR` langsung nilai yang dibakar itu (bukan
+  resolve relatif lagi). Kalau path itu sudah tidak ada di disk (generator
+  di-uninstall / project pindah mesin / lokasi instalasi berubah) — exit 1
+  dengan pesan jelas + command `curl ... install.sh | bash` buat install
+  ulang, sebelum menyentuh apa pun.
+- Build sekarang 2 fase: `create-next-app@latest` + overlay + semua
+  `npm install` jalan di folder staging `frontend-tmp/` dulu (BUKAN
+  `.frontend-tmp` — `create-next-app` menolak nama folder yang diawali
+  titik, "name cannot start with a period", ketemu lewat testing nyata).
+  Begitu SEMUA langkah build sukses, baru `mv frontend-tmp frontend`. Kalau
+  gagal di tengah jalan, `trap ... EXIT` otomatis `rm -rf frontend-tmp` —
+  `frontend/` jadi atomik, tidak pernah ada dalam keadaan setengah jadi.
+
+Tervalidasi nyata: generate project → root cuma `backend/`+`bin/`+file
+compose/package.json/Makefile (tidak ada folder template sama sekali,
+termasuk dicek `ls -a`) → `user-setup.sh` → `frontend-setup.sh` sukses
+penuh (create-next-app, npm install, overlay, `mv frontend-tmp frontend`,
+docker up, generate `api.generated.ts`) → simulasi generator hilang (path
+`TEMPLATE_DIR` diganti ke lokasi tidak ada) → gagal jelas dengan instruksi
+install ulang, exit 1, sebelum `frontend-tmp` sempat dibuat sama sekali.

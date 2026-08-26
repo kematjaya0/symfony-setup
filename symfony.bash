@@ -744,10 +744,15 @@ $PROJECT_NAME/
 └── Makefile                # shortcut perintah setara, gaya \`make\` (opsional, pilih salah satu)
 \`\`\`
 
-Ada juga \`.frontend-template/\` (dotfolder, tidak nongol di \`ls\` biasa) —
-sumber copy internal untuk \`bin/frontend-setup.sh\` supaya frontend bisa
-di-generate ulang kapan saja tanpa bergantung ke instalasi \`symfony.bash\`.
-Jangan diedit manual; edit langsung di \`frontend/\` setelah itu.
+Root project TIDAK punya folder template tambahan apa pun — cuma
+\`backend/\`+\`frontend/\` seperti di atas. Konsekuensinya: \`bin/frontend-setup.sh\`
+butuh instalasi \`symfony.bash\` yang generate project ini masih ada di mesin
+yang sama untuk bisa di-generate ULANG (mis. setelah \`rm -rf frontend\`) —
+kalau generatornya sudah di-\`symfony-new uninstall\` atau project dipindah ke
+mesin lain, \`bin/frontend-setup.sh\` akan berhenti dengan pesan error jelas +
+instruksi install ulang generator (bukan silent-fail). Untuk generate ulang
+SELURUH project (bukan cuma frontend), tetap bisa kapan saja lewat
+\`symfony.bash\`/\`symfony-new\` di mesin mana pun.
 
 ### Perintah (\`make\` / \`npm run\`)
 
@@ -858,7 +863,19 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
     fi
 
     cp "$USER_SETUP_SOURCE" bin/user-setup.sh
-    cp "$FRONTEND_SETUP_SOURCE" bin/frontend-setup.sh
+    # frontend-setup.sh (BEDA dari user-setup.sh) di-render, bukan cp polos —
+    # path absolut lokasi template frontend generator ($FRONTEND_TEMPLATE_SOURCE,
+    # di mesin INI, saat generate INI) dibakar langsung ke dalamnya lewat token
+    # @@FRONTEND_TEMPLATE_SOURCE@@. Konsekuensi sengaja diterima: project hasil
+    # generate TIDAK simpan salinan template sendiri (root project jadi bersih,
+    # cuma backend/+frontend/, tanpa folder template apa pun, tersembunyi
+    # ataupun tidak) — tapi kalau nanti frontend/ dihapus dan mau di-generate
+    # ulang, bin/frontend-setup.sh WAJIB masih bisa akses path yang dibakar itu
+    # (generator belum di-`symfony-new uninstall`, project belum pindah mesin,
+    # lokasi instalasi belum berubah). Kalau tidak, gagal jelas dengan instruksi
+    # install ulang — lihat pengecekan TEMPLATE_DIR di frontend-setup.sh.
+    render_template "$FRONTEND_SETUP_SOURCE" bin/frontend-setup.sh \
+        "@@FRONTEND_TEMPLATE_SOURCE@@" "$FRONTEND_TEMPLATE_SOURCE"
     chmod 755 bin/user-setup.sh bin/frontend-setup.sh
 
     # access-control-setup.sh BEDA dari 2 script di atas: dia dipanggil DARI
@@ -882,20 +899,6 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
     # sendiri), jadi tidak ada node_modules/lockfile baru di root.
     render_template "$PACKAGE_JSON_SOURCE" package.json \
         "@@PROJECT_NAME@@" "$PROJECT_NAME"
-
-    # frontend-setup.sh (lihat symfony/bff-next/frontend-setup.sh) mengasumsikan
-    # template frontend generik ada di .frontend-template/ (dotfolder, relatif
-    # ke bin/) — disalin di sini, bukan di-generate dari nol, karena isinya
-    # (login/register/dashboard/BFF routes/proxy.ts) sengaja sama untuk semua
-    # project tipe ini, cuma dependency/kredensial yang beda per-project.
-    # Sengaja disalin (bukan dibaca langsung dari lokasi instalasi
-    # symfony.bash) supaya project hasil generate SELF-CONTAINED — tetap bisa
-    # dipindah ke mesin lain atau di-generate ulang frontend-nya biarpun
-    # instalasi symfony.bash sudah di-`symfony-new uninstall` atau versinya
-    # sudah berubah. Dotfolder (bukan folder biasa) supaya tidak nongol di
-    # `ls` biasa — ini murni bahan internal frontend-setup.sh, bukan sesuatu
-    # yang perlu dilihat/diedit user.
-    cp -r "$FRONTEND_TEMPLATE_SOURCE" .frontend-template
 else
     SETUP_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/setup.sh"
     JWT_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/jwt-setup.sh"
