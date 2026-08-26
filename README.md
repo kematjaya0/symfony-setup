@@ -169,7 +169,7 @@ nama-project/
 ├── src/
 │   ├── Entity/User.php               # implements UserInterface                       (user-setup.sh)
 │   ├── Repository/UserRepository.php                                                  (user-setup.sh)
-│   ├── DataFixtures/UserFixtures.php  # admin@example.com / admin123                  (user-setup.sh)
+│   ├── DataFixtures/UserFixtures.php  # root@example.com / admin123                  (user-setup.sh)
 │   └── Controller/Api/
 │       ├── PingController.php         # GET /api/ping — public                        (user-setup.sh)
 │       ├── LoginCheckController.php   # POST /api/login_check — dicegat json_login    (jwt-setup.sh)
@@ -258,7 +258,7 @@ bash bin/frontend-setup.sh   # generate Next.js fresh + wiring auth-ui/access-co
 - Frontend: `http://localhost:3000`
 - Backend Swagger UI: `http://localhost:8082/api/docs`
 - Adminer: `http://localhost:9000`
-- Login fixture: `admin@example.com` / `admin123` (ROLE_ADMIN) atau
+- Login fixture: `root@example.com` / `admin123` (ROLE_ADMIN) atau
   `user@example.com` / `admin123` (ROLE_USER), atau register user baru
   lewat `http://localhost:3000/register`.
 
@@ -280,7 +280,7 @@ nama-project/
 │   ├── src/
 │   │   ├── Entity/User.php                                                       (vendor/kematjaya/auth-bundle/setup.sh)
 │   │   ├── Security/UserManager.php     # UserManagerInterface                (auth-bundle/setup.sh)
-│   │   └── DataFixtures/AppFixtures.php # admin@example.com / user@example.com (user-setup.sh)
+│   │   └── DataFixtures/AppFixtures.php # root@example.com / user@example.com (user-setup.sh)
 │   ├── config/
 │   │   ├── packages/
 │   │   │   ├── api_platform.yaml                                                 (user-setup.sh)

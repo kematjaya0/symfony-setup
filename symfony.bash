@@ -709,7 +709,7 @@ lain — sudah diverifikasi end-to-end (register, login, fixture, RBAC).
 
 ### Login
 
-- \`admin@example.com\` / \`admin123\` (ROLE_ADMIN)
+- \`root@example.com\` / \`admin123\` (ROLE_ADMIN)
 - \`user@example.com\` / \`admin123\` (ROLE_USER)
 
 Keduanya fixture, dibuat \`bin/user-setup.sh\` lewat
