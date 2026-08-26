@@ -165,7 +165,7 @@ docker compose exec php bash bin/access-control-setup.sh
 # access-control-setup.sh) dan sudah men-sync sendiri di akhir — tidak ada
 # yang perlu ditambahkan lagi di sini.
 
-echo -e "\n📝 ${GREEN}Membuat fixture user (admin@example.com / user@example.com)...${NC}"
+echo -e "\n📝 ${GREEN}Membuat fixture user (root@example.com / user@example.com)...${NC}"
 docker compose exec php composer require doctrine/doctrine-fixtures-bundle --dev --no-interaction
 # Recipe doctrine/doctrine-fixtures-bundle sudah membuat stub kosong
 # src/DataFixtures/AppFixtures.php (root, lewat docker compose exec) — chown
@@ -191,7 +191,7 @@ class AppFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
-        $admin = new User('admin@example.com');
+        $admin = new User('root@example.com');
         $admin->setRoles(['ROLE_ADMIN']);
         $admin->setPassword($this->passwordHasher->hashPassword($admin, 'admin123'));
         $manager->persist($admin);

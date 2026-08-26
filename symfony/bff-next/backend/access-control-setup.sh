@@ -106,6 +106,7 @@ else
             icon: bi-grid-3x3
             roles: [ROLE_ADMIN]
             gated: true
+            defaultRoles: [ROLE_USER]
 YAML
     blue "wrote 'Access Control' menu item"
 fi
