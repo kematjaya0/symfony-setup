@@ -75,22 +75,38 @@ if [[ -d frontend-tmp ]]; then
     echo -e "${YELLOW}Hapus dulu: rm -rf frontend-tmp${NC}"
     exit 1
 fi
-cleanup_tmp_on_failure() {
+NODE_IMAGE="node:24-alpine"
+
+# node:24-alpine tidak punya entry /etc/passwd untuk UID host arbitrer (dari
+# "-u $(id -u):$(id -g)" di bawah) — tanpa ini npm/npx/create-next-app gagal
+# dengan "SystemError [ERR_SYSTEM_ERROR]: uv_os_get_passwd returned ENOENT"
+# tiap kali ada kode yang panggil os.userInfo() secara internal. File
+# passwd sintetis ini di-generate & di-bind-mount read-only ke /etc/passwd
+# di container supaya os.userInfo() bisa resolve.
+#
+# File-nya SENGAJA dibuat di dalam $ROOT_DIR (bukan lewat mktemp ke /tmp
+# sistem) karena Docker Desktop for Mac (virtiofs/gRPC-FUSE) hanya
+# mem-bind-mount path yang memang di-share ke VM-nya — /var/folders (target
+# /tmp macOS) tidak termasuk, hasilnya gagal dengan error "not a directory"
+# walau file-nya valid. $ROOT_DIR sudah pasti ke-share karena dipakai juga
+# untuk -v "$ROOT_DIR":/workspace di bawah.
+SYNTHETIC_PASSWD="$ROOT_DIR/.docker-passwd-tmp"
+echo "node:x:$(id -u):$(id -g):node:/tmp:/bin/sh" >"$SYNTHETIC_PASSWD"
+cleanup_on_exit() {
     local exit_code=$?
+    rm -f "$SYNTHETIC_PASSWD"
     if [ "$exit_code" -ne 0 ] && [ -d frontend-tmp ]; then
         rm -rf frontend-tmp
     fi
 }
-trap cleanup_tmp_on_failure EXIT
-
-NODE_IMAGE="node:24-alpine"
+trap cleanup_on_exit EXIT
 
 run_node() {
-    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$ROOT_DIR":/workspace -w /workspace "$NODE_IMAGE" "$@"
+    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$SYNTHETIC_PASSWD":/etc/passwd:ro -v "$ROOT_DIR":/workspace -w /workspace "$NODE_IMAGE" "$@"
 }
 
 run_node_in_tmp() {
-    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$ROOT_DIR/frontend-tmp":/app -w /app "$NODE_IMAGE" "$@"
+    docker run --rm -u "$(id -u)":"$(id -g)" -e HOME=/tmp -e PROJECT_NAME="$PROJECT_NAME" -v "$SYNTHETIC_PASSWD":/etc/passwd:ro -v "$ROOT_DIR/frontend-tmp":/app -w /app "$NODE_IMAGE" "$@"
 }
 
 # ==========================================
@@ -177,6 +193,15 @@ pkg.scripts["test"] = "vitest run";
 pkg.scripts["test:e2e"] = "playwright test";
 fs.writeFileSync("package.json", JSON.stringify(pkg, null, 4) + "\n");
 '
+
+# package.json "name" barusan diubah di atas, tapi package-lock.json masih
+# menyimpan "name" lama ("frontend-tmp", dari create-next-app) di root-nya —
+# "npm ci" di frontend/Dockerfile menolak jalan kalau root name/version
+# package.json & package-lock.json tidak sama persis (EUSAGE "not in sync"),
+# meskipun dependency tree-nya sendiri tidak berubah. --package-lock-only
+# cukup menyamakan metadata lock tanpa install ulang apa pun.
+echo -e "📝 ${GREEN}Menyamakan package-lock.json dengan nama project baru...${NC}"
+run_node_in_tmp npm install --package-lock-only
 
 # ==========================================
 # STEP 3b — Semua langkah build (create-next-app, npm install, overlay
