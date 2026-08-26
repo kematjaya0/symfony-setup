@@ -159,8 +159,6 @@ docker compose exec php composer require kematjaya/access-control-bundle --no-in
 
 echo -e "🔧 ${GREEN}Menjalankan installer RBAC (bin/access-control-setup.sh)...${NC}"
 docker compose exec php bash bin/access-control-setup.sh
-echo -e "\n📝 ${GREEN} Syncing the permissions manifest into the database"
-docker compose exec php php bin/console kematjaya:access-control:sync
 
 # access-control-setup.sh sudah menulis config/permissions/default.yaml
 # lengkap (Dashboard bawaan recipe bundle + Access Control ditambahkan
@@ -216,8 +214,10 @@ PHP
 # masih berisi definisi service lama -> ArgumentCountError saat fixtures:load.
 docker compose exec php php bin/console cache:clear
 
-echo -e "🔧 ${GREEN}menjalankan fixture load...${NC}"
+echo -e "🔧 ${GREEN} Menjalankan fixture load...${NC}"
 docker compose exec php php bin/console doctrine:fixtures:load --no-interaction
+echo -e "\n📝 ${GREEN} Syncing the permissions into the database"
+docker compose exec php php bin/console kematjaya:access-control:sync
 
 echo ""
 echo -e "${BLUE}🔐 Mencoba merge otomatis backend/config/packages/security.yaml...${NC}"
