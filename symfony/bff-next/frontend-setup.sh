@@ -46,9 +46,9 @@ if [[ -d frontend ]]; then
     exit 1
 fi
 
-TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../bff-next-template/frontend" 2>/dev/null && pwd || true)"
+TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.frontend-template" 2>/dev/null && pwd || true)"
 if [[ -z "$TEMPLATE_DIR" ]]; then
-    echo -e "${RED}Error: template frontend tidak ditemukan (bff-next-template/frontend). Script ini dipanggil dari lokasi yang salah.${NC}"
+    echo -e "${RED}Error: template frontend tidak ditemukan (.frontend-template). Script ini dipanggil dari lokasi yang salah.${NC}"
     exit 1
 fi
 

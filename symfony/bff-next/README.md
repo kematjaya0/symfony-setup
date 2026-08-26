@@ -188,7 +188,10 @@ sekarang punya menu "3) Full-stack: Symfony API + Next.js" yang:
   supaya tidak dobel-install/konflik)
 - copy `user-setup.sh` → `bin/user-setup.sh`, `frontend-setup.sh` →
   `bin/frontend-setup.sh`, `backend/access-control-setup.sh` →
-  `bin/access-control-setup.sh`, `frontend/` → `bff-next-template/frontend/`
+  `backend/bin/access-control-setup.sh` (update 2026-08-26: dipanggil dari
+  DALAM container php, jadi ikut folder `backend/`, bukan `bin/` root — lihat
+  entri restructure di bawah), `frontend/` → `.frontend-template/` (update
+  2026-08-26: dotfolder, sebelumnya `bff-next-template/frontend/`)
 - README.md project hasil generate dapat section "Auth, RBAC, dan Frontend
   Next.js" otomatis
 
@@ -322,3 +325,19 @@ generate bersih → `bin/user-setup.sh` → `bin/frontend-setup.sh` →
 admin-only menu) → `make lint`/`make console`/`make migrate` (semua jalan
 sesuai ekspektasi) → register+login lewat curl (201/200) → cleanup penuh
 (`docker compose down -v`, chown, `rm -rf`, `docker rmi`).
+
+## `bff-next-template/frontend/` → `.frontend-template/` dotfolder (2026-08-26)
+
+User tanya kenapa template frontend disalin ke folder `bff-next-template/`
+di project hasil generate, bukan langsung `frontend/` — dijelaskan itu
+memang dua hal beda (template statis vs app yang hidup), tapi user tetap
+keberatan folder itu nongol kelihatan di root project (mau root-nya cuma
+`backend/`+`frontend/`, bersih). Solusi: pindahkan ke dotfolder
+`.frontend-template/` (langsung isi template, tanpa nesting `/frontend`
+lagi di dalamnya — sebelumnya `bff-next-template/frontend/`, sekarang cukup
+`.frontend-template/`) — tetap ada (self-containment `frontend-setup.sh`
+tidak berubah, masih penting), cuma tidak nongol di `ls` biasa lagi.
+
+Diubah: `symfony.bash` (`cp -r ... .frontend-template`, tanpa `mkdir -p`
+terpisah karena `cp -r src dst` membuat `dst` langsung kalau belum ada) dan
+`frontend-setup.sh` (`TEMPLATE_DIR` resolve ke `../.frontend-template`).

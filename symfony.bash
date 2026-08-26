@@ -737,15 +737,17 @@ $PROJECT_NAME/
 │   ├── src/app/            # halaman + route handler proxy ke backend (BFF)
 │   ├── tests/unit/         # Vitest + Testing Library
 │   └── tests/e2e/          # Playwright
-├── bff-next-template/      # SUMBER COPY untuk frontend-setup.sh — jangan diedit
-│                            # manual, isinya di-copy ulang tiap frontend-setup.sh
-│                            # dijalankan. Edit langsung di frontend/ setelah itu.
 ├── compose.yaml            # service: php (context: ./backend), database, adminer
 ├── compose.override.yaml   # service: frontend (ditambahkan frontend-setup.sh)
 ├── compose.prod.yaml
 ├── package.json            # script npm, wrapper docker compose (lihat tabel di bawah)
 └── Makefile                # shortcut perintah setara, gaya \`make\` (opsional, pilih salah satu)
 \`\`\`
+
+Ada juga \`.frontend-template/\` (dotfolder, tidak nongol di \`ls\` biasa) —
+sumber copy internal untuk \`bin/frontend-setup.sh\` supaya frontend bisa
+di-generate ulang kapan saja tanpa bergantung ke instalasi \`symfony.bash\`.
+Jangan diedit manual; edit langsung di \`frontend/\` setelah itu.
 
 ### Perintah (\`make\` / \`npm run\`)
 
@@ -882,12 +884,18 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
         "@@PROJECT_NAME@@" "$PROJECT_NAME"
 
     # frontend-setup.sh (lihat symfony/bff-next/frontend-setup.sh) mengasumsikan
-    # template frontend generik ada di bff-next-template/frontend relatif ke
-    # bin/ — disalin di sini, bukan di-generate dari nol, karena isinya
+    # template frontend generik ada di .frontend-template/ (dotfolder, relatif
+    # ke bin/) — disalin di sini, bukan di-generate dari nol, karena isinya
     # (login/register/dashboard/BFF routes/proxy.ts) sengaja sama untuk semua
     # project tipe ini, cuma dependency/kredensial yang beda per-project.
-    mkdir -p bff-next-template
-    cp -r "$FRONTEND_TEMPLATE_SOURCE" bff-next-template/frontend
+    # Sengaja disalin (bukan dibaca langsung dari lokasi instalasi
+    # symfony.bash) supaya project hasil generate SELF-CONTAINED — tetap bisa
+    # dipindah ke mesin lain atau di-generate ulang frontend-nya biarpun
+    # instalasi symfony.bash sudah di-`symfony-new uninstall` atau versinya
+    # sudah berubah. Dotfolder (bukan folder biasa) supaya tidak nongol di
+    # `ls` biasa — ini murni bahan internal frontend-setup.sh, bukan sesuatu
+    # yang perlu dilihat/diedit user.
+    cp -r "$FRONTEND_TEMPLATE_SOURCE" .frontend-template
 else
     SETUP_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/setup.sh"
     JWT_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/jwt-setup.sh"

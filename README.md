@@ -307,14 +307,19 @@ nama-project/
 │   │                                                        backend lewat "../backend" (sibling)
 │   ├── tests/unit/bff.test.ts                            # Vitest
 │   └── tests/e2e/{logout,navigation-role}.spec.ts        # Playwright
-├── bff-next-template/frontend/         # SUMBER COPY untuk frontend-setup.sh — JANGAN diedit
-│                                          manual, ke-timpa ulang tiap frontend-setup.sh dijalankan
 ├── compose.yaml                         # php (context: ./backend), database, adminer (symfony.bash)
 ├── compose.override.yaml                # + service frontend, playwright (profile e2e) (frontend-setup.sh)
 ├── compose.prod.yaml
 ├── package.json                          # npm run dev/console/composer/... (symfony.bash)
 └── Makefile                              # shortcut setara, gaya `make` (symfony.bash)
 ```
+
+Ada juga `.frontend-template/` (dotfolder, tidak nongol di `ls` biasa) —
+salinan internal template `frontend/` supaya `bin/frontend-setup.sh` bisa
+di-generate ulang kapan saja tanpa bergantung ke lokasi instalasi
+`symfony.bash` (project hasil generate tetap self-contained walau
+`symfony-new` di-uninstall atau dipindah ke mesin lain). Jangan diedit
+manual — edit langsung di `frontend/` setelah itu.
 
 Project hasil generate dapat **dua** cara orkestrasi setara — `Makefile`
 (`make dev`, `make console <cmd>`, `make composer <cmd>`, `make test-backend`,
