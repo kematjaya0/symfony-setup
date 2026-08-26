@@ -61,7 +61,7 @@ echo -e "📦 ${GREEN}Menginstal API Platform (kontrak JSON:API untuk frontend N
 # Bundle\SwaggerUi\SwaggerUiProcessor. Tanpa ini /api/docs 500 dengan pesan
 # "The documentation cannot be displayed since the Twig bundle is not
 # installed." — diverifikasi manual lewat generate nyata.
-docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm symfony/twig-bundle --no-interaction
+docker compose exec php composer require api-platform/symfony api-platform/doctrine-orm symfony/twig-bundle symfony/expression-language nelmio/cors-bundle kematjaya/auth-bundle kematjaya/access-control-bundle --no-interaction
 
 echo "== Ensure project files are writable from host =="
 fix_ownership
@@ -92,8 +92,7 @@ api_platform:
     prefix: /api
 YAML
 
-echo -e "📝 ${GREEN}Menginstal nelmio/cors-bundle (frontend Next.js beda origin)...${NC}"
-docker compose exec php composer require nelmio/cors-bundle --no-interaction
+echo -e "📝 ${GREEN} Setup nelmio/cors-bundle (frontend Next.js beda origin)...${NC}"
 # nelmio/cors-bundle punya Flex recipe sendiri yang ikut menulis
 # config/packages/nelmio_cors.yaml (root-owned) — chown ulang sebelum host
 # menimpanya, lihat catatan fix_ownership() di atas.
@@ -112,7 +111,7 @@ nelmio_cors:
 YAML
 
 echo -e "\n${BLUE}==================================================${NC}"
-echo -e "📦 ${GREEN}Menginstal kematjaya/auth-bundle...${NC}"
+echo -e "📦 ${GREEN} Setup kematjaya/auth-bundle...${NC}"
 echo -e "${BLUE}==================================================${NC}"
 # --no-scripts WAJIB di sini: composer.json app punya post-update-cmd yang
 # otomatis jalankan cache:clear begitu package ke-require. Tapi bundle ini
@@ -123,8 +122,6 @@ echo -e "${BLUE}==================================================${NC}"
 # benar: require dulu tanpa scripts, baru setup.sh menulis file yang hilang,
 # baru compile container (setup.sh sendiri diakhiri dengan
 # doctrine:schema:update --force yang otomatis mengompilasi container).
-docker compose exec php composer require kematjaya/auth-bundle --no-interaction --no-scripts
-
 # Gap di auth-bundle/setup.sh: bundle ini bergantung ke 2 dependency Composer
 # (lexik + gesdinet) yang masing-masing punya recipe Flex sendiri untuk
 # registrasi bundle. lexik pakai recipe RESMI (selalu diterapkan otomatis),
@@ -153,12 +150,8 @@ echo -e "🔧 ${GREEN}Menjalankan installer bawaan bundle (User entity, JWT, .en
 docker compose exec php bash vendor/kematjaya/auth-bundle/setup.sh
 
 echo -e "\n${BLUE}==================================================${NC}"
-echo -e "📦 ${GREEN}Menginstal kematjaya/access-control-bundle...${NC}"
+echo -e "📦 ${GREEN} SETUP kematjaya/access-control-bundle...${NC}"
 echo -e "${BLUE}==================================================${NC}"
-docker compose exec php composer require kematjaya/access-control-bundle --no-interaction --no-scripts
-
-echo -e "🔧 ${GREEN}Menjalankan installer RBAC (bin/access-control-setup.sh)...${NC}"
-docker compose exec php bash bin/access-control-setup.sh
 
 # access-control-setup.sh sudah menulis config/permissions/default.yaml
 # lengkap (Dashboard bawaan recipe bundle + Access Control ditambahkan
@@ -166,7 +159,7 @@ docker compose exec php bash bin/access-control-setup.sh
 # yang perlu ditambahkan lagi di sini.
 
 echo -e "\n📝 ${GREEN}Membuat fixture user (root@example.com / user@example.com)...${NC}"
-docker compose exec php composer require doctrine/doctrine-fixtures-bundle --dev --no-interaction
+docker compose exec php composer require doctrine/doctrine-fixtures-bundle kematjaya/crud-maker-api-bundle --dev --no-interaction
 # Recipe doctrine/doctrine-fixtures-bundle sudah membuat stub kosong
 # src/DataFixtures/AppFixtures.php (root, lewat docker compose exec) — chown
 # ulang supaya host bisa menimpanya, lalu isi stub itu (bukan bikin file
@@ -377,8 +370,6 @@ YAML
     echo -e "   docker compose up -d --force-recreate php"
     echo ""
 fi
-
-docker compose exec php composer require kematjaya/crud-maker-api-bundle --dev
 
 echo -e "${YELLOW}============================================================${NC}"
 echo -e "${YELLOW}✅ Backend siap. Langkah selanjutnya:${NC}"
