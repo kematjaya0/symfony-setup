@@ -50,8 +50,8 @@ docker compose exec -T php git config --global --add safe.directory /app
 # tiap require bisa menciptakan file root-owned baru.
 fix_ownership() {
     docker compose exec -T php sh -c "chown -R $(id -u):$(id -g) /app/src /app/tests /app/config" 2>/dev/null || true
-    mkdir -p config/packages config/routes
-    chmod -R u+rwX src tests config 2>/dev/null || true
+    mkdir -p backend/config/packages backend/config/routes
+    chmod -R u+rwX backend/src backend/tests backend/config 2>/dev/null || true
 }
 
 echo -e "📦 ${GREEN}Menginstal API Platform (kontrak JSON:API untuk frontend Next.js)...${NC}"
@@ -61,7 +61,7 @@ echo "== Ensure project files are writable from host =="
 fix_ownership
 
 echo -e "📝 ${GREEN}Menulis config/packages/api_platform.yaml...${NC}"
-cat > config/packages/api_platform.yaml <<YAML
+cat > backend/config/packages/api_platform.yaml <<YAML
 api_platform:
     title: $PROJECT_NAME API
     version: 1.0.0
@@ -79,7 +79,7 @@ api_platform:
 YAML
 
 echo -e "📝 ${GREEN}Mendaftarkan route API Platform...${NC}"
-cat > config/routes/api_platform.yaml <<'YAML'
+cat > backend/config/routes/api_platform.yaml <<'YAML'
 api_platform:
     resource: .
     type: api_platform
@@ -92,7 +92,7 @@ docker compose exec php composer require nelmio/cors-bundle --no-interaction
 # config/packages/nelmio_cors.yaml (root-owned) — chown ulang sebelum host
 # menimpanya, lihat catatan fix_ownership() di atas.
 fix_ownership
-cat > config/packages/nelmio_cors.yaml <<'YAML'
+cat > backend/config/packages/nelmio_cors.yaml <<'YAML'
 nelmio_cors:
     defaults:
         origin_regex: true
@@ -130,7 +130,7 @@ docker compose exec php composer require kematjaya/auth-bundle --no-interaction 
 # yang butuh container compile, dan container gagal compile kalau bundle
 # yang config fragmentnya (ditulis setup.sh) belum terdaftar.
 echo -e "🔧 ${GREEN}Mendaftarkan GesdinetJWTRefreshTokenBundle (Flex contrib recipe di-skip saat non-interaktif)...${NC}"
-if grep -q 'GesdinetJWTRefreshTokenBundle::class' config/bundles.php; then
+if grep -q 'GesdinetJWTRefreshTokenBundle::class' backend/config/bundles.php; then
     echo -e "${YELLOW}--${NC} skipped config/bundles.php (entry sudah ada)"
 else
     docker compose exec -T php php -r '
@@ -160,8 +160,8 @@ docker compose exec php bash bin/access-control-setup.sh
 # item menu "Admin" ditambahkan di sini supaya nav-nya benar-benar muncul
 # untuk ROLE_ADMIN, bukan cuma halamannya ada tapi tidak ke-link dari mana pun.
 fix_ownership
-if ! grep -q "key: admin$" config/permissions/default.yaml; then
-    cat >> config/permissions/default.yaml <<'YAML'
+if ! grep -q "key: admin$" backend/config/permissions/default.yaml; then
+    cat >> backend/config/permissions/default.yaml <<'YAML'
 
     - name: Administration
       items:
@@ -182,8 +182,8 @@ docker compose exec php composer require doctrine/doctrine-fixtures-bundle --dev
 # ulang supaya host bisa menimpanya, lalu isi stub itu (bukan bikin file
 # fixture baru) supaya cuma ada 1 fixture class.
 fix_ownership
-mkdir -p src/DataFixtures
-cat > src/DataFixtures/AppFixtures.php <<'PHP'
+mkdir -p backend/src/DataFixtures
+cat > backend/src/DataFixtures/AppFixtures.php <<'PHP'
 <?php
 
 namespace App\DataFixtures;
@@ -228,7 +228,7 @@ echo -e "🔧 ${GREEN}menjalankan fixture load...${NC}"
 docker compose exec php php bin/console doctrine:fixtures:load --no-interaction
 
 echo ""
-echo -e "${BLUE}🔐 Mencoba merge otomatis config/packages/security.yaml...${NC}"
+echo -e "${BLUE}🔐 Mencoba merge otomatis backend/config/packages/security.yaml...${NC}"
 # Auto-merge HANYA untuk bentuk default persis yang ditulis recipe resmi
 # symfony/security-bundle (diverifikasi manual sekali lewat generate nyata).
 # Kalau bentuknya sudah beda (file di-custom manual), skip ke instruksi
@@ -237,7 +237,7 @@ if python3 - <<'PY'
 from pathlib import Path
 import sys
 
-path = Path('config/packages/security.yaml')
+path = Path('backend/config/packages/security.yaml')
 text = path.read_text()
 
 markers = [
@@ -306,21 +306,21 @@ text = text.replace(old_ac, new_ac, 1)
 path.write_text(text)
 PY
 then
-    echo -e "✅ ${GREEN}config/packages/security.yaml berhasil di-merge otomatis.${NC}"
+    echo -e "✅ ${GREEN}backend/config/packages/security.yaml berhasil di-merge otomatis.${NC}"
     echo -e "🔄 ${GREEN}Restart php supaya security.yaml baru kepakai...${NC}"
     docker compose up -d --force-recreate php
 else
     echo -e "${YELLOW}============================================================${NC}"
     echo -e "${YELLOW}⚠️  LANGKAH MANUAL WAJIB: merge security.yaml${NC}"
     echo -e "${YELLOW}============================================================${NC}"
-    echo -e "${BLUE}config/packages/security.yaml sudah beda dari bentuk default${NC}"
+    echo -e "${BLUE}backend/config/packages/security.yaml sudah beda dari bentuk default${NC}"
     echo -e "${BLUE}symfony/security-bundle (mungkin sudah di-custom) — auto-merge${NC}"
     echo -e "${BLUE}di-skip supaya tidak menimpa buta. Merge manual, bandingkan:${NC}"
     echo ""
-    echo -e "  ${GREEN}config/packages/security.yaml${NC} (punya app)"
-    echo -e "  ${GREEN}vs. security-snippet.yaml${NC} yang ditulis installer ini di bawah"
+    echo -e "  ${GREEN}backend/config/packages/security.yaml${NC} (punya app)"
+    echo -e "  ${GREEN}vs. backend/security-snippet.yaml${NC} yang ditulis installer ini di bawah"
     echo ""
-    cat > security-snippet.yaml <<'YAML'
+    cat > backend/security-snippet.yaml <<'YAML'
 # NOT auto-merged — deliberately manual. Merge blok di bawah ke
 # config/packages/security.yaml (ganti, bukan tambah, kalau nama block sudah
 # ada dari recipe symfony/security-bundle: role_hierarchy, password_hashers,
@@ -378,8 +378,8 @@ when@test:
                 time_cost: 3
                 memory_cost: 10
 YAML
-    echo -e "📄 ${GREEN}security-snippet.yaml${NC} ditulis di root project — buka berdampingan"
-    echo -e "   dengan ${GREEN}config/packages/security.yaml${NC}, merge, lalu hapus file ini."
+    echo -e "📄 ${GREEN}backend/security-snippet.yaml${NC} ditulis — buka berdampingan"
+    echo -e "   dengan ${GREEN}backend/config/packages/security.yaml${NC}, merge, lalu hapus file ini."
     echo ""
     echo -e "${GREEN}Setelah merge, restart php supaya security.yaml baru kepakai:${NC}"
     echo -e "   docker compose up -d --force-recreate php"

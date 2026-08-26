@@ -36,8 +36,8 @@ HELP
     exit 0
 fi
 
-if [[ ! -f bin/console ]]; then
-    echo -e "${RED}Error: bin/console tidak ditemukan. Jalankan bin/user-setup.sh dulu, dan jalankan script ini dari root project.${NC}"
+if [[ ! -f backend/bin/console ]]; then
+    echo -e "${RED}Error: backend/bin/console tidak ditemukan. Jalankan bin/user-setup.sh dulu, dan jalankan script ini dari root project.${NC}"
     exit 1
 fi
 
@@ -118,9 +118,9 @@ cp "$TEMPLATE_DIR/scripts/generate-api-types.mjs" frontend/scripts/generate-api-
 cp "$TEMPLATE_DIR/scripts/generate-api-types-docker.sh" frontend/scripts/generate-api-types-docker.sh
 chmod +x frontend/scripts/generate-api-types-docker.sh
 
-# Backend di project ini ada FLAT di root (bukan folder sibling "backend/"
-# seperti boilerplate asal file ini di-copy dari) — perbaiki 1 baris path-nya.
-sed -i "s#resolve(root, '../backend')#resolve(root, '..')#" frontend/scripts/generate-api-types.mjs
+# generate-api-types.mjs resolve backend lewat "../backend" (relatif dari
+# frontend/scripts/) — sudah benar apa adanya karena project ini sekarang
+# pakai layout backend/+frontend/ (bukan flat), jadi tidak perlu di-patch.
 
 if [[ -d "$TEMPLATE_DIR/tests" ]]; then
     mkdir -p frontend/tests

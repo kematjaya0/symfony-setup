@@ -213,17 +213,49 @@ generic `"frontend"` dari `create-next-app`), dan `user-setup.sh` set
 `my-cool-app API`, container Docker `my-cool-app-php-1`/`my-cool-app-frontend-1`,
 database `my-cool-app` — semua konsisten.
 
-**Catatan soal `compose/`**: folder ini (`compose.yaml.reference`,
-`compose.override.yaml.reference`, `.env.example`, `generate-env.sh`) adalah
-jalur TERPISAH dari yang sudah diverifikasi jalan di atas — alur yang sudah
-dites (`user-setup.sh`/`frontend-setup.sh`) tetap pakai mekanisme
-`.env.local` per-service milik `symfony.bash` sendiri (kredensial DB
-di-generate `symfony.bash` saat generate awal; `JWT_PASSPHRASE`/
-`PERMISSIONS_PROFILE` ditambahkan belakangan oleh `user-setup.sh`/
-`access-control-setup.sh` langsung ke `.env`), **bukan** lewat root
-`.env.example` di folder `compose/` ini. `compose/` baru relevan kalau nanti
-arsitektur compose gabungan (satu `.env` di root, gaya
-`~/Projects/PHP/boilerplate`) benar-benar diadopsi — belum terjadi sekarang.
+**Catatan soal `compose/`** (update 2026-08-26 — lihat entri restructure di
+bawah): folder ini (`compose.yaml.reference`, `compose.override.yaml.reference`,
+`.env.example`, `generate-env.sh`) MASIH dormant/tidak dipakai. Layout
+`backend/`+`frontend/` dari boilerplate ini SUDAH diadopsi (lihat entri
+"Restructure ke backend/+frontend/" di bawah), tapi lewat mekanisme yang
+sudah teruji milik `symfony.bash` sendiri — nama service tetap `php` (bukan
+`backend` seperti di `compose.yaml.reference`, biar konsisten dengan tipe
+1/2), dan kredensial tetap `.env.local` acak per-project (bukan satu `.env`
+root + `generate-env.sh`). `compose/` baru relevan kalau nanti arsitektur
+kredensial/service-naming gabungan gaya `~/Projects/PHP/boilerplate` itu
+sendiri mau diadopsi juga — itu keputusan terpisah, belum terjadi.
+
+## Restructure ke backend/+frontend/ + package.json root (2026-08-26)
+
+User generate project tipe 3 sungguhan, mengharapkan struktur
+`backend/`+`frontend/` (persis boilerplate), bukan flat seperti sebelumnya.
+Flat itu sengaja (lihat catatan lama di `frontend-setup.sh`), tapi user
+eksplisit minta dikembalikan — alasan konkret: butuh `package.json` root
+untuk custom script lintas folder (PHP & npm sekaligus).
+
+Perubahan: `symfony.bash` generate skeleton Symfony ke `backend/` (variabel
+`BACKEND_SUBDIR`/`BACKEND_FILE_PREFIX`, no-op untuk tipe 1/2), `compose.yaml`
+tetap di root dengan `build.context: ./backend`. `user-setup.sh` di-prefix
+`backend/` di semua path host-side (tetap `cd` ke root project, bukan ke
+`backend/`, supaya `docker compose exec` tetap jalan tanpa perlu
+`--project-directory`). `frontend-setup.sh` cuma 2 perubahan: precondition
+check jadi `backend/bin/console`, dan patch `sed -i.bak` untuk
+`generate-api-types.mjs` DIHAPUS — `resolve(root, '../backend')` bawaan
+template sekarang sudah benar apa adanya, tidak perlu di-patch lagi.
+
+**Gotcha yang ditemukan**: `access-control-setup.sh` dipanggil DARI DALAM
+container php (`docker compose exec php bash bin/access-control-setup.sh`),
+jadi harus di-copy ke `backend/bin/access-control-setup.sh` (path yang
+ke-mount ke `/app`), BUKAN ke `bin/` root seperti `user-setup.sh`/
+`frontend-setup.sh` (yang dipanggil dari HOST). Root `bin/` dan
+`backend/bin/` sekarang dua direktori berbeda dengan arti berbeda.
+
+`package.json` root ditulis SEKALI oleh `symfony.bash` (bukan ditambah
+belakangan oleh `frontend-setup.sh`), port 1:1 dari target `Makefile` yang
+sudah ada (`Makefile` TETAP dipertahankan berdampingan, bukan diganti —
+lihat entri di bawah soal kenapa dulu `Makefile` dipilih di atas
+`package.json`; sekarang keduanya ditawarkan, user pilih sendiri). Tanpa
+`devDependencies` — tidak ada `node_modules`/lockfile baru di root.
 
 ## README project hasil generate + parity command `package.json` (2026-08-24)
 

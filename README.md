@@ -20,12 +20,31 @@ menjalankan generator secara interaktif. Lain kali, tidak perlu `curl` lagi —
 cukup:
 
 ```bash
-symfony-new
+symfony-new              # sama dengan "symfony-new create" — generate project baru
+symfony-new create       # sama seperti di atas, eksplisit
+symfony-new update       # update generator ke versi terbaru (git pull), lapor jelas, TIDAK ikut generate
+symfony-new uninstall    # hapus symfony-new + clone repo generator dari local (dengan konfirmasi)
+symfony-new --help       # bantuan
 ```
 
-(`symfony-new` otomatis `git pull` dulu setiap dipanggil, jadi selalu pakai
-versi generator terbaru.) Override lokasi instalasi lewat env var
-`SYMFONY_GEN_HOME` / `SYMFONY_GEN_BIN_DIR` kalau perlu.
+`symfony-new create` (termasuk bentuk tanpa argumen) tetap `git pull`
+diam-diam lebih dulu (best-effort, gagal pun tetap lanjut pakai versi lama)
+sebelum generate — supaya default-nya selalu pakai versi terbaru tanpa perlu
+mikirin update. Kalau mau tahu jelas update-nya berhasil/gagal/sudah-terbaru
+(mis. sebelum demo, atau troubleshooting kenapa fitur baru belum muncul),
+pakai `symfony-new update` — ini yang melapor eksplisit dan exit code-nya
+mencerminkan hasil sebenarnya (bukan `|| true`).
+
+`symfony-new uninstall` minta konfirmasi `(y/N)` dulu (skip dengan
+`-y`/`--yes`) sebelum menghapus `~/.local/share/symfony-generator` (clone
+repo) dan `symfony-new` itu sendiri — aman di-self-delete meski scriptnya
+lagi jalan (teknik standar Unix, file descriptor tetap valid). Project
+Symfony yang sudah di-generate sebelumnya **tidak disentuh sama sekali**;
+cache Composer di `~/.cache/symfony-generator/composer` juga sengaja tidak
+ikut dihapus (dipakai bersama lintas-project) — hapus manual kalau perlu.
+
+Override lokasi instalasi lewat env var `SYMFONY_GEN_HOME` /
+`SYMFONY_GEN_BIN_DIR` kalau perlu.
 
 `symfony.bash` sendiri BUKAN file tunggal — dia butuh folder `symfony/`
 (template Docker/Symfony) yang ikut ter-clone, jadi tidak bisa dijalankan
@@ -243,31 +262,39 @@ bash bin/frontend-setup.sh   # generate Next.js fresh + wiring auth-ui/access-co
   `user@example.com` / `admin123` (ROLE_USER), atau register user baru
   lewat `http://localhost:3000/register`.
 
-**Struktur kode yang terbentuk** (backend FLAT di root — BUKAN folder
-`backend/` — supaya `docker compose exec php ...` tetap jalan dari root
-project seperti tipe lain):
+**Struktur kode yang terbentuk** — monorepo split `backend/`+`frontend/`
+(bukan flat). `bin/` root isinya script yang dijalankan dari HOST;
+`backend/bin/access-control-setup.sh` beda arti — itu dipanggil DARI DALAM
+container `php` (`docker compose exec php bash bin/access-control-setup.sh`),
+jadi harus ada di path yang ke-mount ke `/app`, bukan di `bin/` root:
 
 ```
 nama-project/
 ├── bin/
-│   ├── user-setup.sh                  # dari symfony/bff-next/user-setup.sh
-│   ├── frontend-setup.sh
-│   └── access-control-setup.sh        # dipanggil OTOMATIS dari dalam user-setup.sh
-├── src/                                 # backend Symfony, flat
-│   ├── Entity/User.php                                                       (vendor/kematjaya/auth-bundle/setup.sh)
-│   ├── Security/UserManager.php         # UserManagerInterface                (auth-bundle/setup.sh)
-│   └── DataFixtures/AppFixtures.php     # admin@example.com / user@example.com (user-setup.sh)
-├── config/
-│   ├── packages/
-│   │   ├── api_platform.yaml                                                 (user-setup.sh)
-│   │   ├── nelmio_cors.yaml                                                  (user-setup.sh)
-│   │   ├── security.yaml           # JWT stateless, auto-merge (atau security-snippet.yaml manual)
-│   │   └── kematjaya_access_control.yaml                                     (access-control-setup.sh)
-│   ├── routes/
-│   │   ├── api_platform.yaml        # prefix /api                            (user-setup.sh)
-│   │   └── kematjaya_access_control.yaml                                     (access-control-setup.sh)
-│   └── permissions/default.yaml      # manifest RBAC — menu "Admin" di-tambahkan (user-setup.sh)
-├── tests/
+│   ├── user-setup.sh                  # dari symfony/bff-next/user-setup.sh — dari HOST
+│   └── frontend-setup.sh                                                     # dari HOST
+├── backend/                             # Symfony, build context service "php"
+│   ├── bin/
+│   │   ├── console                                          # bawaan Symfony
+│   │   └── access-control-setup.sh    # dipanggil OTOMATIS dari DALAM container (user-setup.sh)
+│   ├── src/
+│   │   ├── Entity/User.php                                                       (vendor/kematjaya/auth-bundle/setup.sh)
+│   │   ├── Security/UserManager.php     # UserManagerInterface                (auth-bundle/setup.sh)
+│   │   └── DataFixtures/AppFixtures.php # admin@example.com / user@example.com (user-setup.sh)
+│   ├── config/
+│   │   ├── packages/
+│   │   │   ├── api_platform.yaml                                                 (user-setup.sh)
+│   │   │   ├── nelmio_cors.yaml                                                  (user-setup.sh)
+│   │   │   ├── security.yaml       # JWT stateless, auto-merge (atau security-snippet.yaml manual)
+│   │   │   └── kematjaya_access_control.yaml                                     (access-control-setup.sh)
+│   │   ├── routes/
+│   │   │   ├── api_platform.yaml    # prefix /api                            (user-setup.sh)
+│   │   │   └── kematjaya_access_control.yaml                                     (access-control-setup.sh)
+│   │   └── permissions/default.yaml  # manifest RBAC — menu "Admin" di-tambahkan (user-setup.sh)
+│   ├── tests/
+│   ├── Dockerfile
+│   ├── .env / .env.local               # kredensial acak (gitignored)
+│   └── security-snippet.yaml           # hanya muncul kalau auto-merge security.yaml gagal
 ├── frontend/                          # Next.js App Router — hasil create-next-app + template
 │   ├── src/app/
 │   │   ├── login/, register/, access-denied/                # halaman auth
@@ -276,22 +303,27 @@ nama-project/
 │   ├── src/lib/{bff,http,permissions,schemas}.ts       # helper BFF & validasi (zod)
 │   ├── src/proxy.ts                                     # inti proxy request ke backend
 │   ├── src/config/{auth,access-control}.ts              # env-driven, tidak perlu diedit manual
-│   ├── scripts/generate-api-types.mjs                    # source utk `npm run api:types`
+│   ├── scripts/generate-api-types.mjs                    # source utk `npm run api:types`, resolve
+│   │                                                        backend lewat "../backend" (sibling)
 │   ├── tests/unit/bff.test.ts                            # Vitest
 │   └── tests/e2e/{logout,navigation-role}.spec.ts        # Playwright
 ├── bff-next-template/frontend/         # SUMBER COPY untuk frontend-setup.sh — JANGAN diedit
 │                                          manual, ke-timpa ulang tiap frontend-setup.sh dijalankan
-├── compose.yaml                         # php, database, adminer               (symfony.bash)
+├── compose.yaml                         # php (context: ./backend), database, adminer (symfony.bash)
 ├── compose.override.yaml                # + service frontend, playwright (profile e2e) (frontend-setup.sh)
 ├── compose.prod.yaml
-└── Makefile                              # shortcut docker compose exec — lihat tabel di bawah
+├── package.json                          # npm run dev/console/composer/... (symfony.bash)
+└── Makefile                              # shortcut setara, gaya `make` (symfony.bash)
 ```
 
-Project hasil generate juga dapat `Makefile` (shortcut `make dev`,
-`make console <cmd>`, `make composer <cmd>`, `make test-backend`,
-`make test-frontend`, `make test-e2e`, `make lint`, dll — semuanya
-pembungkus `docker compose exec`, tidak butuh PHP/Node di host). Detail
-lengkap ada di `README.md` project hasil generate.
+Project hasil generate dapat **dua** cara orkestrasi setara — `Makefile`
+(`make dev`, `make console <cmd>`, `make composer <cmd>`, `make test-backend`,
+`make test-frontend`, `make test-e2e`, `make lint`) dan `package.json`
+(`npm run dev`, `npm run console -- <cmd>`, dst) — keduanya cuma pembungkus
+tipis `docker compose exec`/`docker compose up`, pilih yang lebih familiar.
+`package.json` sengaja tanpa `devDependencies` (paralelisme sudah ditangani
+`docker compose` sendiri, jadi tidak ada `node_modules` baru di root).
+Detail lengkap ada di `README.md` project hasil generate.
 
 ## Setelah generate (semua tipe)
 

@@ -241,6 +241,25 @@ PROJECT_DIR_ABS="$ORIGINAL_DIR/$PROJECT_NAME"
 CLEANUP_ON_FAILURE=1
 cd "$PROJECT_NAME"
 
+# Tipe 3 (bff-next) pakai layout backend/+frontend/ (monorepo split) —
+# tipe lain tetap flat (skeleton Symfony langsung di root project).
+# BACKEND_SUBDIR dipakai untuk path Docker (context/volume mount, cukup
+# "." atau "backend", tanpa "./"). BACKEND_FILE_PREFIX dipakai untuk path
+# file host-side biasa (cukup string kosong atau "backend/"). Untuk tipe
+# 1/2 keduanya no-op — output identik dengan sebelum restructure ini.
+if [ "$PROJECT_TYPE" == "3" ]; then
+    BACKEND_SUBDIR="backend"
+    BACKEND_FILE_PREFIX="backend/"
+    COMPOSE_BUILD_CONTEXT="./backend"
+    COMPOSE_VOLUME_SRC="./backend"
+else
+    BACKEND_SUBDIR="."
+    BACKEND_FILE_PREFIX=""
+    COMPOSE_BUILD_CONTEXT="."
+    COMPOSE_VOLUME_SRC="./"
+fi
+mkdir -p "$BACKEND_SUBDIR"
+
 # ==========================================
 # STEP 1 — Generate project Symfony di DALAM Docker
 # Wajib dilakukan sebelum menulis Dockerfile/compose,
@@ -260,18 +279,26 @@ COMPOSER_RUN=(docker run --rm
     -e COMPOSER_CACHE_DIR=/tmp/composer-cache
     -e HOME=/tmp
     -v "$COMPOSER_CACHE_HOST_DIR":/tmp/composer-cache
-    -v "$PWD":/app -w /app
+    -v "$PWD/$BACKEND_SUBDIR":/app -w /app
     composer:2)
 
 cleanup_partial_project_dir() {
     local entries=()
 
-    shopt -s dotglob nullglob
-    entries=(*);
-    if [ ${#entries[@]} -gt 0 ]; then
-        rm -rf -- "${entries[@]}"
-    fi
-    shopt -u dotglob nullglob
+    (
+        cd "$BACKEND_SUBDIR" || exit 0
+        shopt -s dotglob nullglob
+        entries=(*)
+        if [ ${#entries[@]} -gt 0 ]; then
+            rm -rf -- "${entries[@]}"
+        fi
+        shopt -u dotglob nullglob
+    )
+    # Docker auto-create bind-mount source sebagai root-owned kalau tidak
+    # ada — bikin COMPOSER_RUN (jalan sebagai -u $(id -u):$(id -g)) gagal
+    # permission pada retry berikutnya. mkdir ulang di sini supaya folder
+    # tetap ada dan tetap dimiliki user host.
+    mkdir -p "$BACKEND_SUBDIR"
 }
 
 run_composer_create_project() {
@@ -287,7 +314,7 @@ run_composer_create_project() {
             cat "$tmpfile"
             rm -f "$tmpfile"
 
-            if [ -f bin/console ]; then
+            if [ -f "$BACKEND_SUBDIR/bin/console" ]; then
                 return 0
             fi
 
@@ -362,7 +389,7 @@ echo -e "⚙️  ${GREEN}Menyiapkan .env.local (kredensial rahasia)...${NC}"
 # password. compose.yaml sudah punya `env_file: [.env, .env.local]` untuk
 # service php, dan `env_file: [.env.local]` untuk service database, jadi
 # nilai di bawah otomatis ke-inject ke container tanpa perlu flag khusus.
-cat <<'EOF' > .env.local
+cat <<'EOF' > "${BACKEND_FILE_PREFIX}.env.local"
 # File ini untuk override variabel .env khusus environment lokal Anda.
 # Otomatis diabaikan Git — jangan hapus baris kredensial di bawah ini.
 EOF
@@ -375,27 +402,27 @@ EOF
     else
         echo "POSTGRES_PASSWORD=$DB_PASSWORD"
     fi
-} >> .env.local
+} >> "${BACKEND_FILE_PREFIX}.env.local"
 
-touch .env
+touch "${BACKEND_FILE_PREFIX}.env"
 
 # ==========================================
 # STEP 2 — Tulis file-file Docker (setelah source Symfony ada)
 # ==========================================
 echo -e "🐳 ${GREEN}Menulis Dockerfile, compose.yaml, dan konfigurasi FrankenPHP...${NC}"
 
-cp "$COMMON_TEMPLATE_DIR/dockerignore" .dockerignore
+cp "$COMMON_TEMPLATE_DIR/dockerignore" "${BACKEND_FILE_PREFIX}.dockerignore"
 
-mkdir -p .docker/frankenphp/conf.d
-cp "$COMMON_TEMPLATE_DIR/frankenphp/conf.d/app.ini" .docker/frankenphp/conf.d/app.ini
-cp "$COMMON_TEMPLATE_DIR/frankenphp/conf.d/zzz-opcache-prod.ini" .docker/frankenphp/conf.d/zzz-opcache-prod.ini
-cp "$COMMON_TEMPLATE_DIR/frankenphp/Caddyfile" .docker/frankenphp/Caddyfile
+mkdir -p "${BACKEND_FILE_PREFIX}.docker/frankenphp/conf.d"
+cp "$COMMON_TEMPLATE_DIR/frankenphp/conf.d/app.ini" "${BACKEND_FILE_PREFIX}.docker/frankenphp/conf.d/app.ini"
+cp "$COMMON_TEMPLATE_DIR/frankenphp/conf.d/zzz-opcache-prod.ini" "${BACKEND_FILE_PREFIX}.docker/frankenphp/conf.d/zzz-opcache-prod.ini"
+cp "$COMMON_TEMPLATE_DIR/frankenphp/Caddyfile" "${BACKEND_FILE_PREFIX}.docker/frankenphp/Caddyfile"
 
 # Dockerfile multi-stage: base -> dev -> prod. Langkah prod tambahan (mis.
 # asset-map:compile untuk fullstack) hidup di $TYPE_TEMPLATE_DIR/Dockerfile.prod-extra
 # (kosong untuk API) — lihat symfony/api/ vs symfony/fullstack/.
 PROD_EXTRA_STEP="$(cat "$TYPE_TEMPLATE_DIR/Dockerfile.prod-extra" 2>/dev/null || true)"
-render_template "$COMMON_TEMPLATE_DIR/Dockerfile.tpl" Dockerfile \
+render_template "$COMMON_TEMPLATE_DIR/Dockerfile.tpl" "${BACKEND_FILE_PREFIX}Dockerfile" \
     "@@PHP_DB_EXTS@@" "$PHP_DB_EXTS" \
     "@@PROD_EXTRA_STEP@@" "$PROD_EXTRA_STEP"
 
@@ -407,7 +434,7 @@ cat <<EOF > compose.yaml
 services:
   php:
     build:
-      context: .
+      context: $COMPOSE_BUILD_CONTEXT
       dockerfile: Dockerfile
       target: frankenphp_dev
     depends_on:
@@ -417,12 +444,12 @@ services:
       APP_ENV: \${APP_ENV:-dev}
       APP_DEBUG: \${APP_DEBUG:-1}
     volumes:
-      - ./:/app
+      - $COMPOSE_VOLUME_SRC:/app
       - caddy_data:/data
       - caddy_config:/config
     env_file:
-      - .env
-      - .env.local
+      - ${BACKEND_FILE_PREFIX}.env
+      - ${BACKEND_FILE_PREFIX}.env.local
     ports:
       - "\${HTTP_PORT:-8082}:8082"
       - "\${HTTPS_PORT:-443}:443"
@@ -430,7 +457,7 @@ services:
   database:
     image: $DB_IMAGE
     env_file:
-      - .env.local
+      - ${BACKEND_FILE_PREFIX}.env.local
 EOF
 
 if [ "$DB_TYPE" == "1" ]; then
@@ -678,7 +705,7 @@ lain — sudah diverifikasi end-to-end (register, login, fixture, RBAC).
 | http://localhost:3000 | Frontend Next.js (login/register/dashboard) |
 | http://localhost:8082/api/docs | Swagger UI (API Platform) |
 | http://localhost:8082/api | Root API Platform (JSON-LD/Hydra) |
-| http://localhost:9000 | Adminer (login pakai kredensial di \`.env.local\`) |
+| http://localhost:9000 | Adminer (login pakai kredensial di \`backend/.env.local\`) |
 
 ### Login
 
@@ -686,7 +713,7 @@ lain — sudah diverifikasi end-to-end (register, login, fixture, RBAC).
 - \`user@example.com\` / \`admin123\` (ROLE_USER)
 
 Keduanya fixture, dibuat \`bin/user-setup.sh\` lewat
-\`src/DataFixtures/AppFixtures.php\`. Atau register user baru lewat
+\`backend/src/DataFixtures/AppFixtures.php\`. Atau register user baru lewat
 \`http://localhost:3000/register\`.
 
 Database, nama project, dan folder project untuk backend+frontend semuanya
@@ -696,11 +723,16 @@ konsisten mengikuti nama \`$PROJECT_NAME\` yang dipilih di awal generator ini.
 
 \`\`\`
 $PROJECT_NAME/
-├── bin/                    # user-setup.sh, frontend-setup.sh, access-control-setup.sh
-├── src/                    # backend Symfony (flat, BUKAN folder "backend/")
-│   ├── Entity/, Repository/, Security/ (UserManager), DataFixtures/
-├── config/                 # config Symfony + config/permissions/*.yaml (RBAC manifest)
-├── tests/                  # PHPUnit
+├── bin/                    # user-setup.sh, frontend-setup.sh — dijalankan dari HOST
+├── backend/                # Symfony (API Platform, auth-bundle, access-control-bundle)
+│   ├── bin/                # bin/console (Symfony bawaan) + access-control-setup.sh
+│   │                        # (dijalankan DARI DALAM container php, bukan dari host)
+│   ├── src/                # Entity/, Repository/, Security/ (UserManager), DataFixtures/
+│   ├── config/              # config Symfony + config/permissions/*.yaml (RBAC manifest)
+│   ├── tests/               # PHPUnit
+│   ├── Dockerfile
+│   ├── .env / .env.local    # kredensial (gitignored)
+│   └── security-snippet.yaml  # hanya muncul kalau auto-merge security.yaml gagal
 ├── frontend/               # Next.js (App Router) — login/register/dashboard/BFF routes
 │   ├── src/app/            # halaman + route handler proxy ke backend (BFF)
 │   ├── tests/unit/         # Vitest + Testing Library
@@ -708,31 +740,32 @@ $PROJECT_NAME/
 ├── bff-next-template/      # SUMBER COPY untuk frontend-setup.sh — jangan diedit
 │                            # manual, isinya di-copy ulang tiap frontend-setup.sh
 │                            # dijalankan. Edit langsung di frontend/ setelah itu.
-├── compose.yaml            # service: php, database, adminer
+├── compose.yaml            # service: php (context: ./backend), database, adminer
 ├── compose.override.yaml   # service: frontend (ditambahkan frontend-setup.sh)
 ├── compose.prod.yaml
-└── Makefile                # shortcut perintah, lihat bagian di bawah
+├── package.json            # script npm, wrapper docker compose (lihat tabel di bawah)
+└── Makefile                # shortcut perintah setara, gaya \`make\` (opsional, pilih salah satu)
 \`\`\`
 
-### Perintah (\`make\`)
+### Perintah (\`make\` / \`npm run\`)
 
-Semua target ini cuma pembungkus \`docker compose exec\` — tidak perlu
-PHP/Composer/Node di host:
+Dua cara setara — sama-sama cuma pembungkus tipis \`docker compose exec\`,
+tidak perlu PHP/Composer/Node di host, pilih yang lebih familiar:
 
-| Perintah | Keterangan |
-| --- | --- |
-| \`make dev\` | \`docker compose up -d --build\` |
-| \`make down\` | \`docker compose down\` |
-| \`make logs\` | tail log semua service |
-| \`make console <cmd>\` | \`bin/console <cmd>\`, mis. \`make console doctrine:migrations:diff\` |
-| \`make composer <cmd>\` | \`composer <cmd>\`, mis. \`make composer require symfony/mailer\` |
-| \`make cc\` | \`bin/console cache:clear\` |
-| \`make migrate\` | jalankan migration Doctrine |
-| \`make schema-update\` | \`doctrine:schema:update --force\` (dev only, bukan migration) |
-| \`make test-backend\` | \`bin/phpunit\` |
-| \`make test-frontend\` | \`npm test\` (Vitest) di container frontend |
-| \`make test-e2e\` | \`docker compose --profile e2e run --rm playwright\` |
-| \`make lint\` | \`npm run lint\` (ESLint) di container frontend |
+| \`make\` | \`npm run\` | Keterangan |
+| --- | --- | --- |
+| \`make dev\` | \`npm run dev\` | \`docker compose up -d --build\` |
+| \`make down\` | \`npm run down\` | \`docker compose down\` |
+| \`make logs\` | \`npm run logs\` | tail log semua service |
+| \`make console <cmd>\` | \`npm run console -- <cmd>\` | \`bin/console <cmd>\`, mis. \`doctrine:migrations:diff\` |
+| \`make composer <cmd>\` | \`npm run composer -- <cmd>\` | \`composer <cmd>\`, mis. \`require symfony/mailer\` |
+| \`make cc\` | \`npm run cc\` | \`bin/console cache:clear\` |
+| \`make migrate\` | \`npm run migrate\` | jalankan migration Doctrine |
+| \`make schema-update\` | \`npm run schema:update\` | \`doctrine:schema:update --force\` (dev only, bukan migration) |
+| \`make test-backend\` | \`npm run test:backend\` | \`bin/phpunit\` |
+| \`make test-frontend\` | \`npm run test:frontend\` | \`npm test\` (Vitest) di container frontend |
+| \`make test-e2e\` | \`npm run test:e2e\` | \`docker compose --profile e2e run --rm playwright\` |
+| \`make lint\` | \`npm run lint\` | \`npm run lint\` (ESLint) di container frontend |
 
 Tidak ada target lint untuk backend (php-cs-fixer/phpstan) karena keduanya
 bukan bagian dari paket minimal yang di-install generator ini — tambahkan
@@ -809,8 +842,9 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
     ACCESS_CONTROL_SETUP_SOURCE="$TYPE_TEMPLATE_DIR/backend/access-control-setup.sh"
     FRONTEND_TEMPLATE_SOURCE="$TYPE_TEMPLATE_DIR/frontend"
     MAKEFILE_SOURCE="$TYPE_TEMPLATE_DIR/Makefile"
+    PACKAGE_JSON_SOURCE="$TYPE_TEMPLATE_DIR/package.json.tpl"
 
-    for required_file in "$USER_SETUP_SOURCE" "$FRONTEND_SETUP_SOURCE" "$ACCESS_CONTROL_SETUP_SOURCE" "$MAKEFILE_SOURCE"; do
+    for required_file in "$USER_SETUP_SOURCE" "$FRONTEND_SETUP_SOURCE" "$ACCESS_CONTROL_SETUP_SOURCE" "$MAKEFILE_SOURCE" "$PACKAGE_JSON_SOURCE"; do
         if [ ! -f "$required_file" ]; then
             echo -e "${RED}Error: File template tidak ditemukan: $required_file${NC}"
             exit 1
@@ -823,13 +857,29 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
 
     cp "$USER_SETUP_SOURCE" bin/user-setup.sh
     cp "$FRONTEND_SETUP_SOURCE" bin/frontend-setup.sh
-    cp "$ACCESS_CONTROL_SETUP_SOURCE" bin/access-control-setup.sh
-    chmod 755 bin/user-setup.sh bin/frontend-setup.sh bin/access-control-setup.sh
+    chmod 755 bin/user-setup.sh bin/frontend-setup.sh
+
+    # access-control-setup.sh BEDA dari 2 script di atas: dia dipanggil DARI
+    # DALAM container php ("docker compose exec php bash bin/access-control-setup.sh",
+    # lihat user-setup.sh), jadi harus ada di path yang ke-mount ke /app —
+    # yaitu backend/bin/, BUKAN bin/ di root project (bin/ root isinya
+    # khusus script yang dijalankan dari HOST).
+    mkdir -p "${BACKEND_FILE_PREFIX}bin"
+    cp "$ACCESS_CONTROL_SETUP_SOURCE" "${BACKEND_FILE_PREFIX}bin/access-control-setup.sh"
+    chmod 755 "${BACKEND_FILE_PREFIX}bin/access-control-setup.sh"
 
     # Makefile dengan shortcut `make dev`/`make console ...`/`make test-backend`
     # dll — pembungkus `docker compose exec`, TIDAK butuh PHP/Node di host.
     # Lihat symfony/bff-next/Makefile untuk daftar lengkap target.
     cp "$MAKEFILE_SOURCE" Makefile
+
+    # package.json root — orkestrasi setara Makefile tapi lewat `npm run`,
+    # supaya bisa dipakai gabungan dengan script npm lain lintas folder
+    # (backend+frontend). Sengaja tanpa dependencies (tidak butuh
+    # "concurrently" dkk — paralelisme sudah ditangani docker compose
+    # sendiri), jadi tidak ada node_modules/lockfile baru di root.
+    render_template "$PACKAGE_JSON_SOURCE" package.json \
+        "@@PROJECT_NAME@@" "$PROJECT_NAME"
 
     # frontend-setup.sh (lihat symfony/bff-next/frontend-setup.sh) mengasumsikan
     # template frontend generik ada di bff-next-template/frontend relatif ke

@@ -44,16 +44,125 @@ if [ ! -f "$INSTALL_DIR/symfony.bash" ]; then
 fi
 
 # Command pendek supaya lain kali tidak perlu curl lagi — cukup ketik
-# "symfony-new". Wrapper ini selalu git pull dulu (best-effort) biar versi
-# generator tetap terbaru tiap dipakai.
+# "symfony-new". Subcommand:
+#   symfony-new [create]  -> generate project (default kalau tanpa argumen).
+#                             Tetap git pull dulu (best-effort, diam-diam,
+#                             SAMA seperti sebelumnya) biar generator selalu
+#                             versi terbaru tanpa user perlu mikirin update.
+#   symfony-new update    -> update EKSPLISIT, TIDAK diam-diam — sukses/gagal/
+#                             sudah-terbaru semuanya dilaporkan jelas, plus
+#                             exit code jelas (berguna dipakai di script lain).
+#   symfony-new uninstall -> hapus clone repo + command ini sendiri (dengan
+#                             konfirmasi, kecuali -y/--yes). Project Symfony
+#                             yang SUDAH di-generate tidak disentuh sama sekali.
+#   symfony-new --help    -> bantuan.
 mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/symfony-new" <<WRAPPER
 #!/usr/bin/env bash
 set -Eeuo pipefail
-if [ -d "$INSTALL_DIR/.git" ]; then
-    git -C "$INSTALL_DIR" pull --ff-only --quiet || true
-fi
-exec bash "$INSTALL_DIR/symfony.bash" "\$@"
+
+INSTALL_DIR="$INSTALL_DIR"
+SELF="$BIN_DIR/symfony-new"
+
+show_help() {
+    cat <<'HELP'
+Usage: symfony-new [create|update|uninstall|--help]
+
+  create      Generate project Symfony baru (default kalau dipanggil tanpa argumen)
+  update      Update generator ini ke versi terbaru (git pull), lalu berhenti
+              -- TIDAK ikut menjalankan generator
+  uninstall   Hapus clone repo generator + command "symfony-new" ini sendiri.
+              Project Symfony yang SUDAH di-generate TIDAK disentuh.
+              Pakai -y/--yes untuk skip konfirmasi.
+  --help      Tampilkan bantuan ini
+
+Argumen tambahan setelah "create" diteruskan apa adanya ke symfony.bash.
+HELP
+}
+
+update_generator() {
+    if [ ! -d "\$INSTALL_DIR/.git" ]; then
+        echo "Error: \$INSTALL_DIR bukan git repo, tidak bisa update." >&2
+        exit 1
+    fi
+    echo "==> Mengecek update di \$INSTALL_DIR..."
+    local before after
+    before="\$(git -C "\$INSTALL_DIR" rev-parse HEAD)"
+    if ! git -C "\$INSTALL_DIR" pull --ff-only; then
+        echo "❌ Gagal update (cek koneksi, atau ada perubahan lokal yang bentrok)." >&2
+        exit 1
+    fi
+    after="\$(git -C "\$INSTALL_DIR" rev-parse HEAD)"
+    if [ "\$before" = "\$after" ]; then
+        echo "✅ Sudah versi terbaru (\${before:0:7})."
+    else
+        echo "✅ Terupdate: \${before:0:7} -> \${after:0:7}"
+    fi
+}
+
+uninstall_generator() {
+    local skip_confirm=0
+    for arg in "\$@"; do
+        case "\$arg" in
+            -y|--yes) skip_confirm=1 ;;
+        esac
+    done
+
+    echo "Ini akan menghapus:"
+    echo "  - \$INSTALL_DIR (clone repo generator)"
+    echo "  - \$SELF (command \"symfony-new\" ini sendiri)"
+    echo ""
+    echo "Project Symfony yang SUDAH di-generate sebelumnya TIDAK akan disentuh."
+    echo "(Cache Composer di ~/.cache/symfony-generator/composer juga TIDAK ikut"
+    echo "dihapus — hapus manual kalau perlu, dipakai bersama lintas-project.)"
+    echo ""
+
+    if [ "\$skip_confirm" -ne 1 ]; then
+        read -r -p "Lanjutkan? (y/N) " confirm
+        case "\$confirm" in
+            y|Y|yes|YES) ;;
+            *)
+                echo "Dibatalkan."
+                exit 0
+                ;;
+        esac
+    fi
+
+    rm -rf "\$INSTALL_DIR"
+    echo "✅ Terhapus: \$INSTALL_DIR"
+
+    echo "✅ Terhapus: \$SELF"
+    echo "symfony-new sudah tidak terpasang. Sampai jumpa!"
+    rm -f "\$SELF"
+}
+
+CMD="\${1:-create}"
+case "\$CMD" in
+    create)
+        shift || true
+        # Best-effort, diam-diam (sama seperti perilaku lama) — kalau mau
+        # tahu jelas berhasil/gagal update, pakai "symfony-new update".
+        if [ -d "\$INSTALL_DIR/.git" ]; then
+            git -C "\$INSTALL_DIR" pull --ff-only --quiet || true
+        fi
+        exec bash "\$INSTALL_DIR/symfony.bash" "\$@"
+        ;;
+    update)
+        update_generator
+        ;;
+    uninstall)
+        shift || true
+        uninstall_generator "\$@"
+        ;;
+    --help|-h|help)
+        show_help
+        ;;
+    *)
+        echo "Error: perintah tidak dikenal: \$CMD" >&2
+        show_help >&2
+        exit 1
+        ;;
+esac
 WRAPPER
 chmod +x "$BIN_DIR/symfony-new"
 

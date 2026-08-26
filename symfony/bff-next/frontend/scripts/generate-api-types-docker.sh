@@ -24,7 +24,10 @@ echo -e "${GREEN}==>${NC} Exporting OpenAPI spec from backend (php container)...
 docker compose exec php php bin/console api:openapi:export --spec-version=3 --output=openapi.json --no-interaction
 
 echo -e "${GREEN}==>${NC} Handing the spec off to the frontend container..."
-mv openapi.json frontend/openapi.json
+# --output=openapi.json ditulis relatif ke WORKDIR container php (/app), yang
+# di-mount dari backend/ (layout backend/+frontend/) — BUKAN dari project
+# root. File-nya karena itu muncul di host sebagai backend/openapi.json.
+mv backend/openapi.json frontend/openapi.json
 
 echo -e "${GREEN}==>${NC} Generating frontend/src/types/api.generated.ts..."
 docker compose exec frontend npx openapi-typescript openapi.json -o src/types/api.generated.ts
