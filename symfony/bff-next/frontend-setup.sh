@@ -139,7 +139,7 @@ echo -e "📦 ${GREEN}Menginstal vitest + testing-library (dev, untuk tests/unit
 # tests/unit/bff.test.ts di-copy dari template di STEP 3 di bawah, tapi
 # vitest/testing-library TIDAK datang dari create-next-app — tanpa ini
 # testnya ke-copy tapi tidak pernah bisa dijalankan (no test runner).
-run_node_in_tmp npm install --save-dev vitest @vitejs/plugin-react jsdom \
+run_node_in_tmp npm install --save-dev vitest @vitejs/plugin-react jsdom @kematjaya/crud-ui-generator \
     @testing-library/react @testing-library/jest-dom @testing-library/user-event
 
 # Di-pin (bukan "latest") supaya versi npm package ini SELALU cocok dengan

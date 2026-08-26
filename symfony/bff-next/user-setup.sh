@@ -378,6 +378,8 @@ YAML
     echo ""
 fi
 
+docker compose exec php composer require kematjaya/crud-maker-api-bundle --dev
+
 echo -e "${YELLOW}============================================================${NC}"
 echo -e "${YELLOW}✅ Backend siap. Langkah selanjutnya:${NC}"
 echo -e "${YELLOW}============================================================${NC}"
