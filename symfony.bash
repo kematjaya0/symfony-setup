@@ -756,10 +756,11 @@ npm run console -- perintah:sub-perintah
 \`\`\`
 contoh:
 \`\`\`bash
-npm run console -- make:entity // generate entity
-\`\`\`
-\`\`\`bash
+npm run console -- make:entity  // generate entity
 npm run console -- doctrine:schema:update --force // update schema ke database
+npm run schema:update                      // doctrine:schema:update --force
+npm run cc                      // cache:clear
+npm run composer -- update      // composer update
 \`\`\`
 
 ### Generate CRUD (backend + frontend) untuk entity baru
