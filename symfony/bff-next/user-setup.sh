@@ -125,6 +125,20 @@ docker compose exec php bash bin/access-control-setup.sh
 echo -e "\n📝 ${YELLOW}== Membuat fixture user (root@example.com / user@example.com)...${NC}"
 docker compose exec php composer require doctrine/doctrine-fixtures-bundle kematjaya/crud-maker-api-bundle --dev --no-interaction
 
+echo -e "🔧 ${YELLOW} == Mendaftarkan CrudMakerApiBundle (Flex recipe di-skip saat non-interaktif)...${NC}"
+if grep -q 'CrudMakerBundle\\\\Api\\\\CrudMakerApiBundle::class' backend/config/bundles.php; then
+    echo -e "${YELLOW}--${NC} skipped config/bundles.php (entry sudah ada)"
+else
+    docker compose exec -T php php -r '
+        $file = "config/bundles.php";
+        $contents = file_get_contents($file);
+        $entry = "    Kematjaya\\\\CrudMakerBundle\\\\Api\\\\CrudMakerApiBundle::class => [\x27dev\x27 => true, \x27test\x27 => true],\n";
+        $updated = preg_replace("/return \[\n/", "return [\n" . $entry, $contents, 1, $count);
+        if ($count !== 1) { fwrite(STDERR, "gagal edit config/bundles.php\n"); exit(1); }
+        file_put_contents($file, $updated);
+    '
+fi
+
 fix_ownership
 mkdir -p backend/src/DataFixtures
 cat > backend/src/DataFixtures/AppFixtures.php <<'PHP'

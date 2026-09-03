@@ -19,6 +19,32 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# ==========================================
+# Opsi versi Symfony: default install versi TERBARU, kecuali flag "--lts"
+# diberikan (mis. `bash symfony.bash --lts`), yang mengunci ke rilis LTS
+# terkini. Constraint LTS di bawah perlu di-update manual tiap kali Symfony
+# merilis LTS baru (rilis *.4, mis. 6.4, 7.4, dst — lihat symfony.com/releases).
+# ==========================================
+SYMFONY_LTS=0
+for arg in "$@"; do
+    case "$arg" in
+        --lts)
+            SYMFONY_LTS=1
+            ;;
+    esac
+done
+
+SYMFONY_LTS_CONSTRAINT="^7.4"
+SYMFONY_LATEST_CONSTRAINT="^8.1"
+
+if [ "$SYMFONY_LTS" -eq 1 ]; then
+    SYMFONY_SKELETON_CONSTRAINT="$SYMFONY_LTS_CONSTRAINT"
+    SYMFONY_VERSION_LABEL="LTS ($SYMFONY_SKELETON_CONSTRAINT)"
+else
+    SYMFONY_SKELETON_CONSTRAINT="$SYMFONY_LATEST_CONSTRAINT"
+    SYMFONY_VERSION_LABEL="terbaru ($SYMFONY_SKELETON_CONSTRAINT)"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/symfony"
 COMMON_TEMPLATE_DIR="$TEMPLATE_DIR/common"
@@ -108,6 +134,7 @@ render_template() {
 echo -e "${BLUE}==================================================${NC}"
 echo -e "${GREEN}🚀 Symfony Smart Project Generator (FrankenPHP, full-Docker)${NC}"
 echo -e "${BLUE}==================================================${NC}"
+echo -e "📌 Versi Symfony yang akan diinstal: ${YELLOW}$SYMFONY_VERSION_LABEL${NC}"
 echo ""
 
 # ==========================================
@@ -310,7 +337,7 @@ run_composer_create_project() {
     while true; do
         tmpfile=$(mktemp /tmp/symfony-create-project.XXXXXX)
 
-        if "${COMPOSER_RUN[@]}" create-project symfony/skeleton:"^8.1" . --no-interaction > "$tmpfile" 2>&1; then
+        if "${COMPOSER_RUN[@]}" create-project symfony/skeleton:"$SYMFONY_SKELETON_CONSTRAINT" . --no-interaction > "$tmpfile" 2>&1; then
             cat "$tmpfile"
             rm -f "$tmpfile"
 
@@ -853,12 +880,13 @@ if [ "$PROJECT_TYPE" == "2" ]; then
 elif [ "$PROJECT_TYPE" == "3" ]; then
     USER_SETUP_SOURCE="$TYPE_TEMPLATE_DIR/user-setup.sh"
     FRONTEND_SETUP_SOURCE="$TYPE_TEMPLATE_DIR/frontend-setup.sh"
+    GENERATE_CRUD_SOURCE="$TYPE_TEMPLATE_DIR/generate-crud.sh"
     ACCESS_CONTROL_SETUP_SOURCE="$TYPE_TEMPLATE_DIR/backend/access-control-setup.sh"
     FRONTEND_TEMPLATE_SOURCE="$TYPE_TEMPLATE_DIR/frontend"
     MAKEFILE_SOURCE="$TYPE_TEMPLATE_DIR/Makefile"
     PACKAGE_JSON_SOURCE="$TYPE_TEMPLATE_DIR/package.json.tpl"
 
-    for required_file in "$USER_SETUP_SOURCE" "$FRONTEND_SETUP_SOURCE" "$ACCESS_CONTROL_SETUP_SOURCE" "$MAKEFILE_SOURCE" "$PACKAGE_JSON_SOURCE"; do
+    for required_file in "$USER_SETUP_SOURCE" "$FRONTEND_SETUP_SOURCE" "$GENERATE_CRUD_SOURCE" "$ACCESS_CONTROL_SETUP_SOURCE" "$MAKEFILE_SOURCE" "$PACKAGE_JSON_SOURCE"; do
         if [ ! -f "$required_file" ]; then
             echo -e "${RED}Error: File template tidak ditemukan: $required_file${NC}"
             exit 1
@@ -883,7 +911,8 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
     # install ulang — lihat pengecekan TEMPLATE_DIR di frontend-setup.sh.
     render_template "$FRONTEND_SETUP_SOURCE" bin/frontend-setup.sh \
         "@@FRONTEND_TEMPLATE_SOURCE@@" "$FRONTEND_TEMPLATE_SOURCE"
-    chmod 755 bin/user-setup.sh bin/frontend-setup.sh
+    cp "$GENERATE_CRUD_SOURCE" bin/generate-crud.sh
+    chmod 755 bin/user-setup.sh bin/frontend-setup.sh bin/generate-crud.sh
 
     # access-control-setup.sh BEDA dari 2 script di atas: dia dipanggil DARI
     # DALAM container php ("docker compose exec php bash bin/access-control-setup.sh",

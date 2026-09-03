@@ -13,6 +13,7 @@
     "test:backend": "docker compose exec php bin/phpunit",
     "test:frontend": "docker compose exec frontend npm test",
     "test:e2e": "docker compose --profile e2e run --rm playwright",
-    "lint": "docker compose exec frontend npm run lint"
+    "lint": "docker compose exec frontend npm run lint",
+    "generate": "bash bin/generate-crud.sh"
   }
 }
