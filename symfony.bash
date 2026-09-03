@@ -737,27 +737,52 @@ untuk generate tipe API-nya.
 | URL | Keterangan |
 | --- | --- |
 | http://localhost:3000 | Frontend Next.js (login/register/dashboard) |
+| http://localhost:3000/login | Login |
+| http://localhost:3000/register | Register |
 | http://localhost:8082/api/docs | Swagger UI (API Platform) |
 | http://localhost:8082/api | Root API Platform (JSON-LD/Hydra) |
 | http://localhost:9000 | Adminer (login pakai kredensial di \`backend/.env.local\`) |
 
-### Login
+### Login Default
 
 - \`root@example.com\` / \`admin123\` (ROLE_ADMIN)
 - \`user@example.com\` / \`admin123\` (ROLE_USER)
 
-Keduanya fixture, dibuat \`bin/user-setup.sh\` lewat
-\`backend/src/DataFixtures/AppFixtures.php\`. Atau register user baru lewat
-\`http://localhost:3000/register\`.
+### Backend console
 
-Database, nama project, dan folder project untuk backend+frontend semuanya
-konsisten mengikuti nama \`$PROJECT_NAME\` yang dipilih di awal generator ini.
+untuk menjalankan symfony console tanpa masuk manual ke container,
+\`\`\`bash
+npm run console -- perintah:sub-perintah
+\`\`\`
+contoh:
+\`\`\`bash
+npm run console -- make:entity // generate entity
+\`\`\`
+\`\`\`bash
+npm run console -- doctrine:schema:update --force // update schema ke database
+\`\`\`
+
+### Generate CRUD (backend + frontend) untuk entity baru
+
+Setelah entity Doctrine dibuat (mis. lewat \`make console -- make:entity\`),
+generate CRUD lengkap — backend API Platform, tipe TypeScript, UI Next.js,
+sampai sync RBAC — dengan SATU perintah:
+
+\`\`\`bash
+npm run generate -- <NamaEntity>
+# atau
+bash bin/generate-crud.sh <NamaEntity>
+\`\`\`
+
+\`<NamaEntity>\` harus persis nama class entity-nya (PascalCase, tanpa
+namespace), mis. \`Note\` untuk \`App\\Entity\\Note\`. Jalankan tanpa argumen
+atau dengan \`--help\` untuk detail tiap langkahnya.
 
 ### Struktur folder
 
 \`\`\`
 $PROJECT_NAME/
-├── bin/                    # user-setup.sh, frontend-setup.sh — dijalankan dari HOST
+├── bin/                    # user-setup.sh, frontend-setup.sh, generate-crud.sh — dijalankan dari HOST
 ├── backend/                # Symfony (API Platform, auth-bundle, access-control-bundle)
 │   ├── bin/                # bin/console (Symfony bawaan) + access-control-setup.sh
 │   │                        # (dijalankan DARI DALAM container php, bukan dari host)
