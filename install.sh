@@ -25,6 +25,14 @@ REPO_URL="https://github.com/kematjaya0/symfony-setup.git"
 INSTALL_DIR="${SYMFONY_GEN_HOME:-$HOME/.local/share/symfony-generator}"
 BIN_DIR="${SYMFONY_GEN_BIN_DIR:-$HOME/.local/bin}"
 
+# Git Bash/MSYS di Windows: cmd.exe & PowerShell tidak paham file tanpa
+# ekstensi (shebang bash) dan tidak pernah baca PATH dari ~/.bashrc, jadi
+# butuh shim .cmd terpisah + registrasi ke User PATH Windows asli.
+IS_WINDOWS=0
+case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;;
+esac
+
 if ! command -v git >/dev/null 2>&1; then
     echo -e "${RED}Error: git belum terinstal. Install git dulu, lalu jalankan lagi.${NC}" >&2
     exit 1
@@ -166,6 +174,17 @@ esac
 WRAPPER
 chmod +x "$BIN_DIR/symfony-new"
 
+if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
+    BASH_EXE_WIN="$(cygpath -w "$(command -v bash)")"
+    # symfony-new (tanpa ekstensi) tak pernah dikenali cmd.exe/PowerShell
+    # sebagai command; %~dp0 = folder .cmd ini sendiri = $BIN_DIR.
+    cat > "$BIN_DIR/symfony-new.cmd" <<CMDWRAPPER
+@echo off
+"$BASH_EXE_WIN" "%~dp0symfony-new" %*
+CMDWRAPPER
+    echo -e "${GREEN}✅ symfony-new.cmd dibuat (supaya bisa dipanggil dari cmd.exe/PowerShell juga).${NC}"
+fi
+
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *)
@@ -173,6 +192,30 @@ case ":$PATH:" in
         echo -e "    export PATH=\"$BIN_DIR:\$PATH\""
         ;;
 esac
+
+if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1 && command -v powershell.exe >/dev/null 2>&1; then
+    WIN_BIN_DIR="$(cygpath -w "$BIN_DIR")"
+    PS_SCRIPT="$(mktemp --suffix=.ps1 2>/dev/null || echo "${TMPDIR:-/tmp}/symfony-gen-path-$$.ps1")"
+    cat > "$PS_SCRIPT" <<PS
+\$dir = '$WIN_BIN_DIR'
+\$p = [Environment]::GetEnvironmentVariable('Path','User')
+if (-not \$p) { \$p = '' }
+\$parts = \$p -split ';' | Where-Object { \$_ -ne '' }
+if (\$parts -notcontains \$dir) {
+    [Environment]::SetEnvironmentVariable('Path', ((\$parts + \$dir) -join ';'), 'User')
+    Write-Host "PATH User Windows diperbarui: \$dir ditambahkan."
+} else {
+    Write-Host "PATH User Windows sudah berisi: \$dir"
+}
+PS
+    echo -e "${BLUE}==> Mendaftarkan $WIN_BIN_DIR ke User PATH Windows (permanen)...${NC}"
+    if powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(cygpath -w "$PS_SCRIPT")"; then
+        echo -e "${YELLOW}   Buka jendela cmd/PowerShell BARU supaya PATH ter-refresh.${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Gagal update PATH Windows otomatis. Tambahkan manual lewat 'Edit environment variables for your account': $WIN_BIN_DIR${NC}"
+    fi
+    rm -f "$PS_SCRIPT"
+fi
 
 echo -e "${GREEN}✅ Terpasang di $INSTALL_DIR${NC}"
 echo -e "${GREEN}   Lain kali cukup jalankan: symfony-new${NC}\n"
