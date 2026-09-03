@@ -25,7 +25,7 @@ fi
 # di-inject ke container php lewat env_file di compose.yaml). JWT_PASSPHRASE
 # ditambahkan di sini dengan pola yang sama, bukan hardcode di file lain.
 if grep -q '^JWT_PASSPHRASE=' .env.local 2>/dev/null; then
-    tmp_env_local=$(mktemp)
+    tmp_env_local=$(mktemp /tmp/jwt-env-local.XXXXXX)
     grep -v '^JWT_PASSPHRASE=' .env.local > "$tmp_env_local"
     mv "$tmp_env_local" .env.local
 fi

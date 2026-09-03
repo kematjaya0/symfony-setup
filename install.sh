@@ -78,6 +78,11 @@ SELF="$BIN_DIR/symfony-new"
 # dengan "bash: not found" walau bash.exe yang menjalankan wrapper ini
 # jelas-jelas ada.
 BASH_BIN="$(command -v bash)"
+# Sama halnya: bash non-login (spt di atas) tidak source /etc/profile, jadi
+# di Windows/MSYS PATH-nya juga belum berisi /usr/bin, /mingw64/bin, dst --
+# tempat dirname/sed/awk/grep cs berada. --login memaksa /etc/profile
+# ke-source supaya PATH lengkap sebelum menjalankan symfony.bash.
+IS_WINDOWS="$IS_WINDOWS"
 
 show_help() {
     cat <<'HELP'
@@ -160,7 +165,11 @@ case "\$CMD" in
         if [ -d "\$INSTALL_DIR/.git" ]; then
             git -C "\$INSTALL_DIR" pull --ff-only --quiet || true
         fi
-        exec "\$BASH_BIN" "\$INSTALL_DIR/symfony.bash" "\$@"
+        if [ "\$IS_WINDOWS" -eq 1 ]; then
+            exec "\$BASH_BIN" --login "\$INSTALL_DIR/symfony.bash" "\$@"
+        else
+            exec "\$BASH_BIN" "\$INSTALL_DIR/symfony.bash" "\$@"
+        fi
         ;;
     update)
         update_generator
@@ -187,7 +196,7 @@ if [ "$IS_WINDOWS" -eq 1 ] && command -v cygpath >/dev/null 2>&1; then
     # sebagai command; %~dp0 = folder .cmd ini sendiri = $BIN_DIR.
     cat > "$BIN_DIR/symfony-new.cmd" <<CMDWRAPPER
 @echo off
-"$BASH_EXE_WIN" "%~dp0symfony-new" %*
+"$BASH_EXE_WIN" --login "%~dp0symfony-new" %*
 CMDWRAPPER
     echo -e "${GREEN}✅ symfony-new.cmd dibuat (supaya bisa dipanggil dari cmd.exe/PowerShell juga).${NC}"
 fi
