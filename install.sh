@@ -71,6 +71,13 @@ set -Eeuo pipefail
 
 INSTALL_DIR="$INSTALL_DIR"
 SELF="$BIN_DIR/symfony-new"
+# Path absolut ke bash disematkan saat install (bukan "bash" polos): kalau
+# wrapper ini dijalankan dari cmd.exe/PowerShell via symfony-new.cmd, PATH
+# yang terwarisi adalah PATH Windows murni -- direktori bash.exe sendiri
+# (mis. Git\bin) biasanya TIDAK ada di situ, jadi "exec bash ..." gagal
+# dengan "bash: not found" walau bash.exe yang menjalankan wrapper ini
+# jelas-jelas ada.
+BASH_BIN="$(command -v bash)"
 
 show_help() {
     cat <<'HELP'
@@ -153,7 +160,7 @@ case "\$CMD" in
         if [ -d "\$INSTALL_DIR/.git" ]; then
             git -C "\$INSTALL_DIR" pull --ff-only --quiet || true
         fi
-        exec bash "\$INSTALL_DIR/symfony.bash" "\$@"
+        exec "\$BASH_BIN" "\$INSTALL_DIR/symfony.bash" "\$@"
         ;;
     update)
         update_generator
