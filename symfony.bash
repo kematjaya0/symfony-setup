@@ -185,7 +185,7 @@ echo -e "📁 Nama folder yang akan dibuat: ${YELLOW}$PROJECT_NAME${NC}\n"
 echo "Pilih tipe project:"
 echo "1) REST API"
 echo "2) Web Application (Symfony UX: Twig + Stimulus + Turbo + Live Components)"
-echo "3) Full-stack: Symfony API + Next.js (auth + RBAC otomatis via kematjaya/auth-bundle + access-control-bundle)"
+echo "3) Full-stack: Symfony API + Next.js (Auth, Register, Access Control, SPA CRUD Generator)"
 read -r -p "Masukkan pilihan Anda (1/2/3): " PROJECT_TYPE
 
 case "$PROJECT_TYPE" in
