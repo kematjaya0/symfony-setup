@@ -684,9 +684,12 @@ yang menyentuh database asli tidak saling mengotori data satu sama lain.
 $( [ "$PROJECT_TYPE" == "3" ] && cat <<EOT
 ## Auth, RBAC, dan Frontend Next.js
 
-Backend baru punya ORM + Security dasar — API Platform, JWT auth
+Backend punya ORM + Security dasar — API Platform, JWT auth
 (\`kematjaya/auth-bundle\`), dan RBAC (\`kematjaya/access-control-bundle\`)
-dipasang otomatis oleh script di bawah, BUKAN oleh generator ini:
+sudah dipasang OTOMATIS oleh generator (\`symfony.bash\`) lewat dua script
+di bawah, masing-masing dijalankan sendiri (tanpa campur tangan manual)
+dengan retry maksimal 3x kalau sempat gagal — cek log generator di atas
+untuk tahu apakah keduanya sukses:
 
 \`\`\`bash
 bash bin/user-setup.sh      # API Platform, auth-bundle, access-control-bundle,
@@ -694,9 +697,13 @@ bash bin/user-setup.sh      # API Platform, auth-bundle, access-control-bundle,
 bash bin/frontend-setup.sh   # generate Next.js fresh + wiring auth-ui/access-control-ui
 \`\`\`
 
-Jalankan berurutan (frontend-setup.sh butuh backend sudah hidup untuk
-generate tipe API-nya). Setelah keduanya selesai, tidak ada langkah manual
-lain — sudah diverifikasi end-to-end (register, login, fixture, RBAC).
+Tidak ada langkah manual lagi — sudah diverifikasi end-to-end (register,
+login, fixture, RBAC). Kedua perintah di atas hanya perlu dijalankan ULANG
+secara manual kalau salah satunya gagal setelah 3x percobaan otomatis
+(generator akan bilang jelas di output-nya kalau ini terjadi), atau kalau
+Anda sengaja mau re-generate ulang (mis. setelah \`rm -rf frontend\`) —
+jalankan berurutan, karena frontend-setup.sh butuh backend sudah hidup
+untuk generate tipe API-nya.
 
 ### URL yang bisa diakses
 
@@ -899,6 +906,63 @@ elif [ "$PROJECT_TYPE" == "3" ]; then
     # sendiri), jadi tidak ada node_modules/lockfile baru di root.
     render_template "$PACKAGE_JSON_SOURCE" package.json \
         "@@PROJECT_NAME@@" "$PROJECT_NAME"
+
+    # ==========================================
+    # STEP 6 (khusus tipe 3) — bin/user-setup.sh lalu bin/frontend-setup.sh
+    # dulunya langkah manual ("masuk project, jalankan kedua script itu
+    # sendiri"). Sekarang dijalankan otomatis dari sini. Tiap script dicoba
+    # maksimal 3x kalau gagal; kalau tetap gagal setelah 3x, TIDAK
+    # menghentikan symfony.bash (project sudah ter-generate valid) —
+    # cetak peringatan lalu lanjut ke script berikutnya, sesuai
+    # permintaan: retry maksimal 3x baru lanjut file selanjutnya.
+    # ==========================================
+    run_step_script_with_retry() {
+        # Usage: run_step_script_with_retry <label> <script_path> [pre_retry_cleanup_fn]
+        local label="$1" script_path="$2" pre_retry_fn="${3:-}"
+        local max_attempts=3
+        local attempt=1
+
+        while [ "$attempt" -le "$max_attempts" ]; do
+            echo -e "🔧 ${GREEN}${label} (percobaan ${attempt}/${max_attempts})...${NC}"
+            if bash "$script_path"; then
+                return 0
+            fi
+
+            echo -e "${YELLOW}⚠️  ${label} gagal (percobaan ${attempt}/${max_attempts}).${NC}" >&2
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+                echo -e "${RED}❌ ${label} tetap gagal setelah ${max_attempts} percobaan. Lanjut ke langkah berikutnya —${NC}" >&2
+                echo -e "${RED}   jalankan manual belakangan: bash ${script_path}${NC}" >&2
+                return 1
+            fi
+
+            if [ -n "$pre_retry_fn" ]; then
+                "$pre_retry_fn"
+            fi
+            attempt=$((attempt + 1))
+        done
+    }
+
+    cleanup_frontend_partial_before_retry() {
+        # frontend-setup.sh menolak jalan kalau folder frontend/ atau
+        # frontend-tmp/ (staging sementara) sudah ada — supaya retry
+        # BENERAN mengulang dari awal (bukan langsung gagal di guard itu),
+        # bersihkan dulu sisa percobaan sebelumnya. Aman: frontend-setup.sh
+        # baru mv frontend-tmp -> frontend SETELAH semua langkah build
+        # sukses, jadi "frontend/" yang dihapus di sini tidak pernah dalam
+        # keadaan setengah jadi.
+        rm -rf frontend frontend-tmp
+    }
+
+    echo ""
+    echo -e "${BLUE}⏳ Menjalankan setup backend otomatis (API Platform, auth-bundle, access-control-bundle)...${NC}"
+    USER_SETUP_STATUS=0
+    run_step_script_with_retry "bin/user-setup.sh" bin/user-setup.sh || USER_SETUP_STATUS=$?
+
+    echo ""
+    echo -e "${BLUE}⏳ Menjalankan setup frontend otomatis (Next.js + wiring auth/RBAC UI)...${NC}"
+    FRONTEND_SETUP_STATUS=0
+    run_step_script_with_retry "bin/frontend-setup.sh" bin/frontend-setup.sh cleanup_frontend_partial_before_retry || FRONTEND_SETUP_STATUS=$?
 else
     SETUP_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/setup.sh"
     JWT_SCRIPT_SOURCE="$TYPE_TEMPLATE_DIR/jwt-setup.sh"
@@ -919,12 +983,24 @@ echo "--------------------------------------------------"
 echo -e "${GREEN}✅ Setup selesai!${NC}"
 echo -e "📁 Project: ${YELLOW}$PROJECT_NAME${NC}"
 echo -e "🌐 Akses:   ${YELLOW}http://localhost:8082${NC}"
-echo -e "🔧 masuk ke project dan jalankan: ${YELLOW}bash bin/user-setup.sh${NC}"
 if [ "$PROJECT_TYPE" == "2" ]; then
+    echo -e "🔧 masuk ke project dan jalankan: ${YELLOW}bash bin/user-setup.sh${NC}"
     echo -e "   lalu ikuti instruksi di akhirnya untuk ${YELLOW}bash bin/security-setup.sh${NC} (form login)"
 elif [ "$PROJECT_TYPE" == "3" ]; then
-    echo -e "   lalu jalankan ${YELLOW}bash bin/frontend-setup.sh${NC} (generate Next.js + auth/RBAC UI)"
+    echo -e "🔧 bin/user-setup.sh dan bin/frontend-setup.sh sudah dijalankan otomatis (lihat log di atas)."
+    if [ "${USER_SETUP_STATUS:-0}" -eq 0 ] && [ "${FRONTEND_SETUP_STATUS:-0}" -eq 0 ]; then
+        echo -e "🌐 Frontend: ${YELLOW}http://localhost:3000${NC}"
+    else
+        echo -e "${RED}⚠️  Salah satu langkah di atas gagal setelah 3x percobaan — jalankan manual:${NC}"
+        if [ "${USER_SETUP_STATUS:-0}" -ne 0 ]; then
+            echo -e "   ${YELLOW}bash bin/user-setup.sh${NC}"
+        fi
+        if [ "${FRONTEND_SETUP_STATUS:-0}" -ne 0 ]; then
+            echo -e "   ${YELLOW}bash bin/frontend-setup.sh${NC}"
+        fi
+    fi
 else
+    echo -e "🔧 masuk ke project dan jalankan: ${YELLOW}bash bin/user-setup.sh${NC}"
     echo -e "   lalu ikuti instruksi di akhirnya untuk ${YELLOW}bash bin/jwt-setup.sh${NC} (autentikasi JWT)"
 fi
 echo -e "📖 Baca ${YELLOW}README.md${NC} di dalam folder project untuk langkah selanjutnya."
